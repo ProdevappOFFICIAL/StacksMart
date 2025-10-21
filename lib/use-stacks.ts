@@ -20,8 +20,8 @@ export function useStacks() {
   function connectWallet() {
     showConnect({
       appDetails: {
-        name: "StacksMart",
-        icon: "https://avatars.githubusercontent.com/u/231766800?s=400&u=252add02370d1b05ace6d96f7afc90f0c69bb588&v=4e",
+        name: "StackMart",
+        icon: "/Stacks_Store_icon.png"
       },
       onFinish: () => {
         // reload the webpage when wallet connection succeeds

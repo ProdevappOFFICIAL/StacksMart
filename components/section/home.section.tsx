@@ -31,7 +31,7 @@ export default function WebPlatform() {
         <span className="inline-flex items-center gap-2">
           <Flame className="w-4 h-4 text-yellow-400" />
           <span>
-            <strong>Create Online Store now!</strong> get started with StacksMart, the best Web3 ecommerce platform for creators and developers.
+            <strong>Create Online Store now!</strong> get started with StackMart, the best Web3 ecommerce platform for creators and developers.
           </span>
         </span>
       </div>
