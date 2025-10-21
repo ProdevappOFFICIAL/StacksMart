@@ -15,7 +15,7 @@ export default function CommunitySection() {
               Don&apos;t trust, verify.
             </p>
             <p className="text-gray-700 text-lg mb-8">
-              SolStore is an open-source platform. You want to contribute to the development? Join us and give us a star!
+              StacksMart is an open-source platform. You want to contribute to the development? Join us and give us a star!
             </p>
             <button className="inline-flex items-center gap-2 px-6 py-3 border-2 border-gray-900 rounded-md text-gray-900 font-medium hover:bg-gray-900 hover:text-white transition-colors duration-200">
               Go to Github
@@ -156,7 +156,7 @@ export default function CommunitySection() {
                       </div>
                     ))}
 
-                
+
                   </div>
                 </div>
 

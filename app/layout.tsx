@@ -8,8 +8,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "SolStore - Web3 ecommerce for creators and developers",
-  description: " SolStore is a secured and open-source ecommerce platform for web3 sellers , creators and developers to create, manage and sell digital products powered by blockchain technology.",
+  title: "StacksMart - Web3 ecommerce for creators and developers",
+  description: " StacksMart is a secured and open-source ecommerce platform for web3 sellers , creators and developers to create, manage and sell digital products powered by blockchain technology.",
 };
 
 export default function RootLayout({

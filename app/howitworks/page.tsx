@@ -67,7 +67,7 @@ export default function HowItWorksPage() {
         <div className="w-full mx-auto px-8 sm:px-16 py-4 flex items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
-            <Image src={'/solStore_icon.png'}
+            <Image src={'/Stacks_Store_icon.png'}
               height={80}
               width={80}
               alt='SolStore_Logo' />

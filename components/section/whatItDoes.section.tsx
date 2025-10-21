@@ -120,7 +120,7 @@ export default function WhatItDoes() {
                 Everything you need to create and manage your store.
               </h1>
               <p className="text-lg md:text-sm text-gray-600 mb-8 leading-relaxed">
-                We give you all the tools you need to build a solid foundation, understand your customers and sell your products.
+                We give you all the tools you need to build aStacksid foundation, understand your customers and sell your products.
                </p>
               
               {/* Features List */}

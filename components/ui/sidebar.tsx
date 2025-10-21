@@ -105,7 +105,7 @@ export default function Sidebar({ currentStore }: SidebarProps) {
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-center gap-2">
           <Image
-            src={'/solStore_icon.png'}
+            src={'/Stacks_Store_icon.png'}
             height={isCollapsed ? 40 : 80}
             width={isCollapsed ? 40 : 80}
             alt='SolStore_Logo'

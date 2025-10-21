@@ -27,7 +27,7 @@ export default function Footer() {
         <div className="container mx-auto px-4 py-12">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
             {/* Logo Column */}
-             <Image src={'/solStore_icon.png'}
+             <Image src={'/Stacks_Store_icon.png'}
                      height={80}
                      width={80}
                      alt='SolStore_Logo'/>
@@ -102,7 +102,7 @@ export default function Footer() {
           {/* Bottom Bar */}
           <div className="pt-8 border-t border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-xs text-gray-600">
-              © 2025 SolStore.
+              © 2025StacksStore.
             </p>
 
             {/* Social Icons */}

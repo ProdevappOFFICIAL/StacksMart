@@ -141,7 +141,7 @@ export default function AdminPage() {
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <Image
-                                src="/solStore_icon.png"
+                                src="/Stacks_Store_icon.png"
                                 height={80}
                                 width={80}
                                 alt="SolStore_Logo"

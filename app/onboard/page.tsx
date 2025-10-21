@@ -152,7 +152,7 @@ export default function Onboard() {
       <header className="bg-white border-b border-gray-700">
         <div className="flex w-full items-center justify-between max-w-7xl mx-auto text-black px-4 py-4">
           <div className="flex items-center gap-2">
-            <Image src={'/solStore_icon.png'}
+            <Image src={'/Stacks_Store_icon.png'}
               height={80}
               width={80}
               alt='SolStore_Logo' />

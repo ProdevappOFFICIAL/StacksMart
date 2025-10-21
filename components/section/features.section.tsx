@@ -24,7 +24,7 @@ export default function Features() {
           <div className="flex flex-col items-start justify-center p-12 md:p-16 bg-white">
             <p className="text-md md:text-lg leading-relaxed text-gray-800 mb-8">
               Sell products, Create stores, analyse, discover other Web3 sellers and
-              brands... SolanaStore is the best Web3 alternative to Take.app
+              brands...  is the best Web3 alternative to Take.app
               We give you all the tools you need to shape your community and make your stories
               come to life.
             </p>
@@ -51,25 +51,25 @@ export default function Features() {
           {/* Bitcoin & IPFS Feature */}
           <div className="p-12 md:p-16 lg:border-r  sm:border-transparent border-gray-700 flex flex-col">
             <h2 className="text-3xl md:text-4xl font-bold mb-12">
-            Recieve payments in Solana
+            Recieve payments in Stacks
             </h2>
             
             <div className="mb-12 flex gap-4">
-              {/* Solana Icon */}
+              {/* Stacks Icon */}
               <Image
-                src="/solana.png"
-                alt="Solana Logo"
-                width={300}
-                height={300}
+                src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBwgHBgkIBwgKCgkLDRYPDQwMDRsUFRAWIB0iIiAdHx8kKDQsJCYxJx8fLT0tMTU3Ojo6Iys/RD84QzQ5OjcBCgoKDQwNGg8PGjclHyU3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3N//AABEIACgAKAMBEQACEQEDEQH/xAAYAAEAAwEAAAAAAAAAAAAAAAAAAwQGBf/EACsQAAAFAQYEBwEAAAAAAAAAAAABAgMRBAUSExUhcTEyQWEiNUJRgqHSFP/EABoBAQADAAMAAAAAAAAAAAAAAAACAwUEBgf/xAAqEQACAQIEBAUFAAAAAAAAAAAAAQIDEQQSE0ExUYLBISNh0fAUMmJjcf/aAAwDAQACEQMRAD8Atjqx6AAAAAAAAAE9C2w7VtN1bqmmVHCnElN3vsJ01FySk7IqrSnGm5U1drYsJsiqO18sMiJ4lQavSSeN7aNRZoT1dLf54lLxlP6fX278itWIYbqnUUrinWUqhC1FBq7iuaipNRd0X0ZTlTTqKz5EIgWAAdewsPCexMo5i8wI5+MdBysPls75eoz8bmzK2fp7mmPMPFJ2BP8ALroucD8/Q0PM/Hh68PYxvI/Zx9Pu9zM27h3GcPKeJzl5HPTmkZ+Iy2VsvSbOCzXlfP1djkDimgABPQuMM1bTlU0bzSDlTZHF72LYTpuMZJyV0VV4znTcabs3uTptaqK1szNUvX5Muhlwu7RoJqvPV1d/ngVPB0/p9Dbvz/pXrFsOVTq6Vo2mVKlLZnN3sITcXJuKsi6jGcaaVR3fMhECwAAAAAAAAP/Z"
+                alt="Stacks Logo"
+                width={100}
+                height={100}
                 className="rounded-full"
               />
             
             </div>
 
             <p className="text-lg leading-relaxed text-gray-800">
-              Want to sell digital products and receive payments in Solana? <br/>
+              Want to sell digital products and receive payments in Stacks? <br/>
               <span className="font-bold">Create your store.</span>{' '}
-           list your products and start accepting SOL payments from your customers.
+           list your products and start acceptingStacks payments from your customers.
             </p>
           </div>
 
