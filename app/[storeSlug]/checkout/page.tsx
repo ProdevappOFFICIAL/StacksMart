@@ -1,7 +1,7 @@
 'use client'
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Plus, Minus, X, Wallet, Mail, ArrowLeft, Loader2, ShoppingCart, QrCode, ExternalLink, Clock } from 'lucide-react';
+import { Plus, Minus, X, Wallet, Mail, ArrowLeft, Loader2, ShoppingCart, Clock } from 'lucide-react';
 import { useCart, CartItem } from '@/hooks/useCart';
 import { useWallet } from '@/hooks/useWallet';
 import { storeApi } from '@/lib/api';
@@ -230,17 +230,7 @@ export default function CheckoutPage() {
         }
     };
 
-    const handleCopyQRCode = async () => {
-        if (checkoutData?.paymentURL) {
-            try {
-                await navigator.clipboard.writeText(checkoutData.paymentURL);
-                // Show success feedback (you could add a toast here)
-                console.log('QR code data copied to clipboard');
-            } catch (err) {
-                console.error('Failed to copy QR code data:', err);
-            }
-        }
-    };
+;
 
     const handlePlaceOrder = async () => {
         // Reset error state
@@ -326,7 +316,7 @@ export default function CheckoutPage() {
             quantity: item.quantity,
             customerWallet: walletAddress,
             customerEmail: customerEmail.trim(),
-            currency: (item.currency as "SOL" | "USDC") || 'SOL'
+            currency: (item.currency as "STX" | "USDCX") || 'STX'
         });
     };
 

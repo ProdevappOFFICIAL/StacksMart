@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
+import Image from 'next/image';
 
 interface QRCodeProps {
   value: string;
@@ -139,7 +140,7 @@ export function QRCodeSVG({
 
   return (
     <div className={className}>
-      <img
+      <Image
         src={qrCodeDataURL}
         alt="QR Code"
         width={size}

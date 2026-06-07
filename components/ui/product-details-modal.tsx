@@ -32,7 +32,7 @@ export function ProductDetailsModal({
   onClose,
   onAddToCart,
   onBuyNow,
-  storeSlug
+
 }: ProductDetailsModalProps) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);

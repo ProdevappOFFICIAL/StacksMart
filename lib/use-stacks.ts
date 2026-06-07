@@ -1,57 +1,115 @@
-import {
-  AppConfig,
-  showConnect,
-  type UserData,
-  UserSession,
-} from "@stacks/connect";
-import { useEffect, useState } from "react";
+"use client";
+
+import { AppConfig, UserSession, connect, disconnect as stacksDisconnect } from "@stacks/connect";
+import { useEffect, useState, useCallback, useMemo } from "react";
+
+// Define the shape of the address objects returned by the wallet
+export interface StacksAddress {
+  symbol?: string;
+  address: string;
+  publicKey: string;
+}
+
+// Define the shape of your normalized user data to replace 'any'
+export interface StacksUserData {
+  profile?: {
+    stxAddress?: {
+      mainnet?: string;
+      testnet?: string;
+    };
+  };
+  stxAddress?: string;
+  addresses?: StacksAddress[];
+  [key: string]: unknown; // Allows for additional properties returned by the session
+}
 
 export function useStacks() {
-  // Initially when the user is not logged in, userData is null
-  const [userData, setUserData] = useState<UserData | null>(null);
+  const appConfig = useMemo(() => new AppConfig(["store_write", "publish_data"]), []);
+  
+  const userSession = useMemo(() => {
+    if (typeof window === "undefined") return new UserSession({ appConfig });
+    try {
+      return new UserSession({ appConfig });
+    } catch (e) {
+      console.error("Error initializing UserSession:", e);
+      // If there's a session error (like version mismatch), clear local storage for this key
+      localStorage.removeItem('blockstack-session');
+      return new UserSession({ appConfig });
+    }
+  }, [appConfig]);
 
-  // create application config that allows
-  // storing authentication state in browser's local storage
-  const appConfig = new AppConfig(["store_write"]);
+  const [userData, setUserData] = useState<StacksUserData | null>(null);
 
-  // creating a new user session based on the application config
-  const userSession = new UserSession({ appConfig });
-
-  function connectWallet() {
-    showConnect({
-      appDetails: {
-        name: "StackMart",
-        icon: "/Stacks_Store_icon.png"
-      },
-      onFinish: () => {
-        // reload the webpage when wallet connection succeeds
-        // to ensure that the user session gets populated from local storage
-        window.location.reload();
-      },
-      userSession,
-    });
-  }
-
-  function disconnectWallet() {
-    // sign out the user and close their session
-    // also clear out the user data
-    userSession.signUserOut();
-    setUserData(null);
-  }
-
-  // When the page first loads, if the user is already signed in,
-  // set the userData
-  // If the user has a pending sign-in instead, resume the sign-in flow
+  // Synchronize state with UserSession on mount and changes
   useEffect(() => {
-    if (userSession.isUserSignedIn()) {
-      setUserData(userSession.loadUserData());
-    } else if (userSession.isSignInPending()) {
-      userSession.handlePendingSignIn().then((userData) => {
-        setUserData(userData);
+    if (typeof window !== "undefined") {
+      if (userSession.isUserSignedIn()) {
+        setUserData(userSession.loadUserData() as StacksUserData);
+      } else if (userSession.isSignInPending()) {
+        userSession.handlePendingSignIn().then((data) => {
+          setUserData(data as StacksUserData);
+        }).catch(err => {
+          console.error("Pending sign-in error:", err);
+        });
+      } else {
+        // Check for manual session storage if connect() was used without UserSession persist
+        const savedData = localStorage.getItem("stacks-user-data");
+        if (savedData) {
+          try {
+            setUserData(JSON.parse(savedData));
+          } catch {
+            console.warn("Failed to parse saved Stacks user data.");
+          }
+        }
+      }
+    }
+  }, [userSession]);
+
+  const connectWallet = useCallback(async () => {
+    try {
+      // Use the latest connect() implementation with config options
+      const response = await connect({
+        forceWalletSelect: true,
+        network: 'mainnet',
       });
+
+      if (response && response.addresses) {
+        const stxAddress = response.addresses.find((a: StacksAddress) => a.symbol === "STX")?.address;
+        
+        // Construct a userData object that works with both old and new code
+        const normalizedData: StacksUserData = {
+          ...response,
+          profile: {
+            stxAddress: {
+              mainnet: stxAddress,
+              testnet: stxAddress,
+            }
+          },
+          stxAddress // Direct access helper
+        };
+        
+        setUserData(normalizedData);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("stacks-user-data", JSON.stringify(normalizedData));
+        }
+      }
+    } catch (error) {
+      console.error("Error connecting wallet:", error);
     }
   }, []);
 
-  // return the user data, connect wallet function, and disconnect wallet function
-  return { userData, connectWallet, disconnectWallet };
+  const disconnectWallet = useCallback(() => {
+    try {
+      userSession.signUserOut();
+      stacksDisconnect();
+      setUserData(null);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("stacks-user-data");
+      }
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  }, [userSession]);
+
+  return { userData, connectWallet, disconnectWallet, userSession };
 }

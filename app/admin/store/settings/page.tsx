@@ -3,7 +3,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/ui/sidebar';
 import { storeApi, uploadApi, ApiError } from '@/lib/api';
-import { useWallet } from '@/hooks/useWallet';
+import { useAuth } from '@/contexts/AuthContext';
 import { WalletConnectButtonMini } from '@/components/wallet/wallet-connect-button-mini';
 import {
   Save,
@@ -21,6 +21,7 @@ import {
   Loader2,
   Wallet,
 } from 'lucide-react';
+import Image from 'next/image';
 
 interface NotificationSettings {
   email: boolean;
@@ -91,19 +92,20 @@ interface Tab {
 function StoreSettingsContent() {
   const searchParams = useSearchParams();
   const currentStore = searchParams.get('store') || undefined;
-  const { isConnected, walletAddress } = useWallet();
+  const { isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('general');
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>({ type: null, message: '' });
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [settings, setSettings] = useState<StoreSettings>({
     storeName: '',
     storeDescription: '',
     storeUrl: '',
     storeLogo: '',
     storeBanner: '',
-    currency: 'SOL',
+    currency: 'STX',
     language: 'English',
     timezone: 'UTC',
     theme: 'light',
@@ -121,7 +123,7 @@ function StoreSettingsContent() {
   // Load store data on component mount
   useEffect(() => {
     const loadStoreData = async () => {
-      if (!currentStore || !isConnected) {
+      if (!currentStore || !isAuthenticated) {
         setLoading(false);
         return;
       }
@@ -130,6 +132,11 @@ function StoreSettingsContent() {
         setLoading(true);
         const storeData = await storeApi.getStoreBySlug(currentStore) as StoreApiResponse;
 
+        // Set wallet address from store owner
+        if (storeData.owner?.walletAddress) {
+          setWalletAddress(storeData.owner.walletAddress);
+        }
+
         setSettings({
           id: storeData.id,
           storeName: storeData.name || '',
@@ -137,7 +144,7 @@ function StoreSettingsContent() {
           storeUrl: storeData.slug || '',
           storeLogo: storeData.icon || '',
           storeBanner: storeData.banner || '',
-          currency: storeData.settings?.currency || 'SOL',
+          currency: storeData.settings?.currency || 'STX',
           language: storeData.settings?.language || 'English',
           timezone: storeData.settings?.timezone || 'UTC',
           theme: storeData.settings?.theme || 'light',
@@ -163,7 +170,7 @@ function StoreSettingsContent() {
     };
 
     loadStoreData();
-  }, [currentStore, isConnected]);
+  }, [currentStore, isAuthenticated]);
 
   const handleInputChange = (field: keyof StoreSettings, value: string): void => {
     setSettings(prev => ({
@@ -187,7 +194,7 @@ function StoreSettingsContent() {
   };
 
   const handleSave = async (): Promise<void> => {
-    if (!settings.id || !isConnected) {
+    if (!settings.id || !isAuthenticated) {
       setSaveStatus({
         type: 'error',
         message: 'Store ID not found or wallet not connected'
@@ -333,7 +340,7 @@ function StoreSettingsContent() {
               {(activeTab !== 'general' || isGeneralInfoComplete()) && (
                 <button
                   onClick={handleSave}
-                  disabled={saveStatus.type === 'loading' || !isConnected}
+                  disabled={saveStatus.type === 'loading' || !isAuthenticated}
                   className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {saveStatus.type === 'loading' ? (
@@ -383,7 +390,7 @@ function StoreSettingsContent() {
                     <p className="text-gray-600">Loading store settings...</p>
                   </div>
                 </div>
-              ) : !isConnected ? (
+              ) : !isAuthenticated ? (
                 <div className="text-center py-12">
                   <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">Wallet Not Connected</h3>
@@ -461,10 +468,12 @@ function StoreSettingsContent() {
                             <div className="flex items-center gap-4">
                               <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
                                 {settings.storeLogo ? (
-                                  <img
+                                  <Image
                                     src={settings.storeLogo}
                                     alt="Store Logo"
                                     className="w-full h-full object-cover"
+                                    width={64}
+                                    height={64}
                                   />
                                 ) : (
                                   <Store className="w-8 h-8 text-gray-400" />
@@ -501,10 +510,12 @@ function StoreSettingsContent() {
                             <div className="border-2 border-dashed border-gray-300 rounded-lg overflow-hidden">
                               {settings.storeBanner ? (
                                 <div className="relative">
-                                  <img
+                                  <Image
                                     src={settings.storeBanner}
                                     alt="Store Banner"
                                     className="w-full h-32 object-cover"
+                                    width={64}
+                                    height={64}
                                   />
                                   <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
                                     <input
@@ -608,8 +619,8 @@ function StoreSettingsContent() {
                               onChange={(e) => handleInputChange('currency', e.target.value)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
-                              <option value="SOL">Solana (SOL)</option>
-                            
+                              <option value="STX">Stacks (STX)</option>
+                              <option value="USDCX">USDCx</option>
                             </select>
                           </div>
 
@@ -755,15 +766,15 @@ function StoreSettingsContent() {
                         <h2 className="text-lg font-medium text-gray-900 mb-4">Payment Methods</h2>
                         <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-6">
 
-                          {/* Solana Wallet Section */}
+                          {/* Stacks Wallet Section */}
                           <div>
                             <div className="flex items-center gap-3 mb-4">
                               <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
                                 <Wallet className="w-5 h-5 text-white" />
                               </div>
                               <div>
-                                <h3 className="text-lg font-medium text-gray-900">Solana Wallet</h3>
-                                <p className="text-xs text-gray-600">Connect your Phantom wallet to receive SOL payments</p>
+                                <h3 className="text-lg font-medium text-gray-900">Stacks Wallet</h3>
+                                <p className="text-xs text-gray-600">Connect your wallet to receive STX payments</p>
                               </div>
                             </div>
 
@@ -778,14 +789,14 @@ function StoreSettingsContent() {
                               />
                             </div>
 
-                            {isConnected && walletAddress && (
+                            {isAuthenticated && walletAddress && (
                               <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                                 <div className="flex items-start gap-2">
                                   <CheckCircle className="w-5 h-5 text-blue-600 mt-0.5" />
                                   <div>
                                     <p className="text-xs font-medium text-blue-900">Payment Wallet Connected</p>
                                     <p className="text-xs text-blue-700 mt-1">
-                                      Your store will receive SOL payments directly to this wallet address.
+                                      Your store will receive STX payments directly to this wallet address.
                                     </p>
                                     <p className="text-xs font-mono text-blue-600 mt-2">
                                       {walletAddress}
@@ -809,8 +820,8 @@ function StoreSettingsContent() {
                                   onChange={(e) => handleInputChange('currency', e.target.value)}
                                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 >
-                                  <option value="SOL">Solana (SOL)</option>
-                                 
+                                  <option value="STX">Stacks (STX)</option>
+                                  <option value="USDCX">USDCx</option>
                                 </select>
                                 <p className="text-xs text-gray-500 mt-1">
                                   Choose the cryptocurrency your customers will pay with

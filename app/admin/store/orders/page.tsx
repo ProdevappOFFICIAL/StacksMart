@@ -17,7 +17,7 @@ import {
   Package
 } from 'lucide-react';
 import { storeApi, ApiError } from '@/lib/api';
-import { useWallet } from '@/hooks/useWallet';
+import { useAuth } from '@/contexts/AuthContext';
 import { Loading } from '@/components/ui/loading';
 
 interface StoreData {
@@ -70,7 +70,7 @@ const statusConfig = {
 };
 
 function OrdersContent() {
-  const { isConnected } = useWallet();
+  const { isAuthenticated } = useAuth();
   const searchParams = useSearchParams();
   const currentStore = searchParams.get('store');
 
@@ -87,7 +87,7 @@ function OrdersContent() {
   // Load store data and orders
   useEffect(() => {
     const loadData = async () => {
-      if (!isConnected || !currentStore) {
+      if (!isAuthenticated || !currentStore) {
         setLoading(false);
         return;
       }
@@ -125,7 +125,7 @@ function OrdersContent() {
     };
 
     loadData();
-  }, [isConnected, currentStore, currentPage, statusFilter, searchTerm]);
+  }, [isAuthenticated, currentStore, currentPage, statusFilter, searchTerm]);
 
   // Handle search with debounce
   useEffect(() => {
@@ -156,7 +156,7 @@ function OrdersContent() {
     }
   };
 
-  if (!isConnected) {
+  if (!isAuthenticated) {
     return (
       <div className="flex h-screen bg-gray-50 items-center justify-center">
         <div className="text-center">

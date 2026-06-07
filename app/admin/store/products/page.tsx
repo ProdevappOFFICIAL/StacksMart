@@ -9,7 +9,6 @@ import {
   Eye,
   Edit,
   Trash2,
-  MoreHorizontal,
   Package,
   TrendingUp,
   DollarSign,
@@ -17,11 +16,11 @@ import {
   X,
   Save,
   Upload,
-  Image as ImageIcon
+  Copy
 } from 'lucide-react';
 import Image from 'next/image';
 import { storeApi, uploadApi, ApiError } from '@/lib/api';
-import { useWallet } from '@/hooks/useWallet';
+import { useAuth } from '@/contexts/AuthContext';
 import { Loading } from '@/components/ui/loading';
 
 interface StoreData {
@@ -63,7 +62,7 @@ interface ProductsResponse {
 }
 
 function ProductsContent() {
-  const { isConnected } = useWallet();
+  const { isAuthenticated } = useAuth();
   const searchParams = useSearchParams();
   const currentStore = searchParams.get('store');
 
@@ -81,39 +80,61 @@ function ProductsContent() {
   // Add product modal state
   const [showAddModal, setShowAddModal] = useState(false);
   const [addingProduct, setAddingProduct] = useState(false);
-  const [newProduct, setNewProduct] = useState({
+  const [newProduct, setNewProduct] = useState<{
+    name: string;
+    description: string;
+    price: string;
+    currency: 'STX' | 'USDCX';
+    category: string;
+    stock: string;
+    status: 'active' | 'draft' | 'inactive';
+    images: string[];
+  }>({
     name: '',
     description: '',
     price: '',
-    currency: 'SOL',
+    currency: 'STX',
     category: '',
     stock: 'unlimited',
     status: 'active',
-    images: [] as string[]
+    images: []
   });
 
   // Edit product modal state
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
-  const [editProductData, setEditProductData] = useState({
+  const [editProductData, setEditProductData] = useState<{
+    name: string;
+    description: string;
+    price: string;
+    currency: 'STX' | 'USDCX';
+    category: string;
+    stock: string;
+    status: 'active' | 'draft' | 'inactive';
+    images: string[];
+  }>({
     name: '',
     description: '',
     price: '',
-    currency: 'SOL',
+    currency: 'STX',
     category: '',
     stock: 'unlimited',
     status: 'active',
-    images: [] as string[]
+    images: []
   });
 
   // Image upload states
   const [uploadingImages, setUploadingImages] = useState(false);
 
+  // Batch delete states
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Load store data and products
   useEffect(() => {
     const loadData = async () => {
-      if (!isConnected || !currentStore) {
+      if (!isAuthenticated || !currentStore) {
         setLoading(false);
         return;
       }
@@ -122,11 +143,15 @@ function ProductsContent() {
         setLoading(true);
         setError(null);
 
+        console.log('Loading store data for:', currentStore);
+
         // Get store data first
         const store = await storeApi.getStoreBySlug(currentStore);
+        console.log('Store loaded:', store);
         setStoreData(store);
 
         // Get products
+        console.log('Loading products for store:', store.id);
         const productsData = await storeApi.getStoreProducts(store.id, {
           page: currentPage,
           limit: 20,
@@ -135,11 +160,32 @@ function ProductsContent() {
           search: searchTerm || undefined,
         });
 
+        console.log('Products loaded:', productsData);
         setProducts(productsData as ProductsResponse);
       } catch (err) {
         console.error('Error loading products:', err);
+        console.error('Error details:', {
+          isAuthenticated,
+          currentStore,
+          storeData: storeData?.id,
+          error: err
+        });
+        
         if (err instanceof ApiError) {
-          setError(err.message);
+          console.error('API Error:', {
+            code: err.code,
+            message: err.message,
+            details: err.details
+          });
+          
+          // Provide more helpful error messages
+          if (err.code === 'NETWORK_ERROR') {
+            setError('Cannot connect to backend server. Please ensure the backend is running at http://localhost:4000');
+          } else if (err.code === 'SERVER_ERROR') {
+            setError('Backend server error. Please check the backend logs for details.');
+          } else {
+            setError(`${err.message}${err.details ? ` - ${JSON.stringify(err.details)}` : ''}`);
+          }
         } else {
           setError('Failed to load products');
         }
@@ -149,7 +195,7 @@ function ProductsContent() {
     };
 
     loadData();
-  }, [isConnected, currentStore, currentPage, statusFilter, categoryFilter, searchTerm]);
+  }, [isAuthenticated, currentStore, currentPage, statusFilter, categoryFilter, searchTerm, storeData?.id]);
 
   // Handle search with debounce
   useEffect(() => {
@@ -217,28 +263,70 @@ function ProductsContent() {
 
   // Handle add product
   const handleAddProduct = async () => {
-    if (!storeData || !newProduct.name || !newProduct.price) return;
+    if (!storeData || !newProduct.name || !newProduct.price) {
+      console.error('Validation failed:', { storeData: !!storeData, name: newProduct.name, price: newProduct.price });
+      return;
+    }
 
     try {
       setAddingProduct(true);
+      setError('');
 
-      await storeApi.createProduct(storeData.id, {
-        name: newProduct.name,
-        description: newProduct.description || undefined,
+      // Prepare product data to match backend expectations
+      const productData: {
+        name: string;
+        price: number;
+        currency: 'STX' | 'USDCX';
+        status: 'active' | 'draft' | 'inactive';
+        description?: string;
+        category?: string;
+        stock?: number | 'unlimited';
+        images?: string[];
+      } = {
+        name: newProduct.name.trim(),
         price: parseFloat(newProduct.price),
-        currency: newProduct.currency as 'SOL' | 'USDC',
-        category: newProduct.category || undefined,
-        stock: newProduct.stock === 'unlimited' ? 'unlimited' : parseInt(newProduct.stock),
+        currency: newProduct.currency,
         status: newProduct.status as 'active' | 'draft' | 'inactive',
-        images: newProduct.images,
-      });
+      };
+
+      // Add optional fields only if they have values
+      if (newProduct.description && newProduct.description.trim()) {
+        productData.description = newProduct.description.trim();
+      }
+
+      if (newProduct.category && newProduct.category.trim()) {
+        productData.category = newProduct.category.trim();
+      }
+
+      // Handle stock - backend might expect specific format
+      if (newProduct.stock === 'unlimited') {
+        productData.stock = 'unlimited';
+      } else {
+        const stockNum = parseInt(newProduct.stock);
+        if (!isNaN(stockNum) && stockNum > 0) {
+          productData.stock = stockNum;
+        } else {
+          productData.stock = 'unlimited';
+        }
+      }
+
+      // Add images if available
+      if (newProduct.images && newProduct.images.length > 0) {
+        productData.images = newProduct.images;
+      }
+
+      console.log('Sending product data to API:', JSON.stringify(productData, null, 2));
+      console.log('Store ID:', storeData.id);
+
+      const result = await storeApi.createProduct(storeData.id, productData);
+      console.log('Product created successfully:', result);
 
       // Reset form and close modal
       setNewProduct({
         name: '',
         description: '',
         price: '',
-        currency: 'SOL',
+        currency: 'STX',
         category: '',
         stock: 'unlimited',
         status: 'active',
@@ -257,6 +345,20 @@ function ProductsContent() {
       setProducts(productsData as ProductsResponse);
     } catch (err) {
       console.error('Error adding product:', err);
+      
+      // Extract detailed error message
+      if (err instanceof ApiError) {
+        console.error('API Error Details:', {
+          code: err.code,
+          message: err.message,
+          details: err.details
+        });
+        setError(`Failed to create product: ${err.message}${err.details ? ` - ${JSON.stringify(err.details)}` : ''}`);
+      } else if (err instanceof Error) {
+        setError(`Failed to create product: ${err.message}`);
+      } else {
+        setError('Failed to create product. Please try again.');
+      }
     } finally {
       setAddingProduct(false);
     }
@@ -269,7 +371,7 @@ function ProductsContent() {
       name: product.name,
       description: product.description || '',
       price: product.price,
-      currency: product.currency,
+      currency: product.currency as 'STX' | 'USDCX',
       category: product.category || '',
       stock: product.stock.toString(),
       status: product.status,
@@ -279,22 +381,33 @@ function ProductsContent() {
   };
 
   // Handle update product
-  const handleUpdateProduct = async () => {
-    if (!storeData || !editProduct || !editProductData.name || !editProductData.price) return;
+const handleUpdateProduct = async () => {
+  if (!storeData || !editProduct || !editProductData.name || !editProductData.price) return;
 
-    try {
-      setEditingProduct(true);
+  try {
+    setEditingProduct(true);
 
-      await storeApi.updateProduct(storeData.id, editProduct.id, {
-        name: editProductData.name,
-        description: editProductData.description || undefined,
-        price: parseFloat(editProductData.price),
-        currency: editProductData.currency as 'SOL' | 'USDC',
-        category: editProductData.category || undefined,
-        stock: editProductData.stock === 'unlimited' ? 'unlimited' : parseInt(editProductData.stock),
-        status: editProductData.status as 'active' | 'draft' | 'inactive',
-        images: editProductData.images,
-      });
+    const productData: {
+      name: string;
+      description?: string;
+      price: number;
+      currency: 'STX' | 'USDCX';
+      category?: string;
+      status: 'active' | 'draft' | 'inactive';
+      images: string[];
+      stock: number | 'unlimited';
+    } = {
+      name: editProductData.name.trim(),
+      description: editProductData.description.trim() || undefined,
+      price: parseFloat(editProductData.price),
+      currency: editProductData.currency,
+      category: editProductData.category.trim() || undefined,
+      status: editProductData.status as 'active' | 'draft' | 'inactive',
+      images: editProductData.images,
+      stock: editProductData.stock === 'unlimited' ? 'unlimited' : parseInt(editProductData.stock)
+    };
+
+    await storeApi.updateProduct(storeData.id, editProduct.id, productData);
 
       // Close modal and reset state
       setShowEditModal(false);
@@ -303,7 +416,7 @@ function ProductsContent() {
         name: '',
         description: '',
         price: '',
-        currency: 'SOL',
+        currency: 'STX',
         category: '',
         stock: 'unlimited',
         status: 'active',
@@ -347,6 +460,103 @@ function ProductsContent() {
     }
   };
 
+  // Handle duplicate product
+  const handleDuplicateProduct = async (product: Product) => {
+    if (!storeData) return;
+
+    try {
+      let stockValue: number | 'unlimited' = 'unlimited';
+      if (product.stock !== 'unlimited') {
+        const stockNum = typeof product.stock === 'string' ? parseInt(product.stock) : product.stock;
+        if (!isNaN(stockNum) && stockNum > 0) {
+          stockValue = stockNum;
+        }
+      }
+
+      const productData = {
+        name: `${product.name} (Copy)`,
+        description: product.description || undefined,
+        price: parseFloat(product.price),
+        currency: product.currency as 'STX' | 'USDCX',
+        category: product.category || undefined,
+        stock: stockValue,
+        status: 'draft' as const,
+        images: product.images || []
+      };
+
+      await storeApi.createProduct(storeData.id, productData);
+
+      // Refresh products
+      const productsData = await storeApi.getStoreProducts(storeData.id, {
+        page: currentPage,
+        limit: 20,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        category: categoryFilter !== 'all' ? categoryFilter : undefined,
+        search: searchTerm || undefined,
+      });
+      setProducts(productsData as ProductsResponse);
+    } catch (err) {
+      console.error('Error duplicating product:', err);
+    }
+  };
+
+  // Handle batch delete
+  const handleBatchDelete = async () => {
+    if (!storeData || selectedProducts.size === 0) return;
+    
+    if (!confirm(`Are you sure you want to delete ${selectedProducts.size} product(s)?`)) return;
+
+    try {
+      setIsDeleting(true);
+      
+      // Delete all selected products
+      await Promise.all(
+        Array.from(selectedProducts).map(productId =>
+          storeApi.deleteProduct(storeData.id, productId)
+        )
+      );
+
+      // Clear selection
+      setSelectedProducts(new Set());
+
+      // Refresh products
+      const productsData = await storeApi.getStoreProducts(storeData.id, {
+        page: currentPage,
+        limit: 20,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        category: categoryFilter !== 'all' ? categoryFilter : undefined,
+        search: searchTerm || undefined,
+      });
+      setProducts(productsData as ProductsResponse);
+    } catch (err) {
+      console.error('Error batch deleting products:', err);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Toggle product selection
+  const toggleProductSelection = (productId: string) => {
+    const newSelection = new Set(selectedProducts);
+    if (newSelection.has(productId)) {
+      newSelection.delete(productId);
+    } else {
+      newSelection.add(productId);
+    }
+    setSelectedProducts(newSelection);
+  };
+
+  // Toggle all products selection
+  const toggleAllProducts = () => {
+    if (!products?.products) return;
+    
+    if (selectedProducts.size === products.products.length) {
+      setSelectedProducts(new Set());
+    } else {
+      setSelectedProducts(new Set(products.products.map(p => p.id)));
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800';
@@ -356,7 +566,7 @@ function ProductsContent() {
     }
   };
 
-  if (!isConnected) {
+  if (!isAuthenticated) {
     return (
       <div className="flex h-screen bg-gray-50 items-center justify-center">
         <div className="text-center">
@@ -411,13 +621,25 @@ function ProductsContent() {
                 </div>
               )}
             </div>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Add Product
-            </button>
+            <div className="flex items-center gap-2">
+              {selectedProducts.size > 0 && (
+                <button
+                  onClick={handleBatchDelete}
+                  disabled={isDeleting}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete {selectedProducts.size} Selected
+                </button>
+              )}
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Add Product
+              </button>
+            </div>
           </div>
         </header>
 
@@ -509,6 +731,14 @@ function ProductsContent() {
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <input
+                            type="checkbox"
+                            checked={products.products.length > 0 && selectedProducts.size === products.products.length}
+                            onChange={toggleAllProducts}
+                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          />
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Product
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -534,6 +764,14 @@ function ProductsContent() {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {products.products.map((product) => (
                         <tr key={product.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <input
+                              type="checkbox"
+                              checked={selectedProducts.has(product.id)}
+                              onChange={() => toggleProductSelection(product.id)}
+                              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                            />
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
                               <div className="flex-shrink-0 h-10 w-10">
@@ -581,17 +819,26 @@ function ProductsContent() {
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div className="flex items-center justify-end gap-2">
                               <button
+                                onClick={() => handleDuplicateProduct(product)}
+                                className="text-blue-600 hover:text-blue-900 p-1 rounded"
+                                title="Duplicate product"
+                              >
+                                <Copy className="w-4 h-4" />
+                              </button>
+                              <button
                                 onClick={() => handleEditProduct(product)}
                                 className="text-indigo-600 hover:text-indigo-900 p-1 rounded"
+                                title="Edit product"
                               >
                                 <Edit className="w-4 h-4" />
                               </button>
-                              <button className="text-gray-400 hover:text-gray-600 p-1 rounded">
+                              <button className="text-gray-400 hover:text-gray-600 p-1 rounded" title="View product">
                                 <Eye className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => handleDeleteProduct(product.id)}
                                 className="text-red-600 hover:text-red-900 p-1 rounded"
+                                title="Delete product"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -672,6 +919,19 @@ function ProductsContent() {
                 </button>
               </div>
 
+              {/* Error Display */}
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                    <div className="text-xs text-red-700">
+                      <p className="font-medium">Error creating product</p>
+                      <p className="mt-1">{error}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-2">
@@ -719,11 +979,11 @@ function ProductsContent() {
                     </label>
                     <select
                       value={newProduct.currency}
-                      onChange={(e) => setNewProduct({ ...newProduct, currency: e.target.value })}
+                      onChange={(e) => setNewProduct({ ...newProduct, currency: e.target.value as 'STX' | 'USDCX' })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     >
-                      <option value="SOL">SOL</option>
-                     
+                      <option value="STX">STX</option>
+                      <option value="USDCX">USDCx</option>
                     </select>
                   </div>
                 </div>
@@ -732,13 +992,30 @@ function ProductsContent() {
                   <label className="block text-xs font-medium text-gray-700 mb-2">
                     Category
                   </label>
-                  <input
-                    type="text"
-                    value={newProduct.category}
-                    onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
+                  <select
+                    value={categories.includes(newProduct.category) ? newProduct.category : 'custom'}
+                    onChange={(e) => {
+                      if (e.target.value !== 'custom') {
+                        setNewProduct({ ...newProduct, category: e.target.value });
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder="e.g., Digital Art, Tools, Templates"
-                  />
+                  >
+                    <option value="">Select category</option>
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                    <option value="custom">+ Add custom category</option>
+                  </select>
+                  {(!categories.includes(newProduct.category) || newProduct.category === '') && (
+                    <input
+                      type="text"
+                      value={newProduct.category}
+                      onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 mt-2"
+                      placeholder="Enter custom category"
+                    />
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -746,13 +1023,32 @@ function ProductsContent() {
                     <label className="block text-xs font-medium text-gray-700 mb-2">
                       Stock
                     </label>
-                    <input
-                      type="text"
-                      value={newProduct.stock}
-                      onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
+                    <select
+                      value={newProduct.stock === 'unlimited' || ['10', '25', '50', '100'].includes(newProduct.stock) ? newProduct.stock : 'custom'}
+                      onChange={(e) => {
+                        if (e.target.value !== 'custom') {
+                          setNewProduct({ ...newProduct, stock: e.target.value });
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                      placeholder="unlimited or number"
-                    />
+                    >
+                      <option value="unlimited">Unlimited</option>
+                      <option value="10">10</option>
+                      <option value="25">25</option>
+                      <option value="50">50</option>
+                      <option value="100">100</option>
+                      <option value="custom">Custom amount</option>
+                    </select>
+                    {newProduct.stock !== 'unlimited' && !['10', '25', '50', '100'].includes(newProduct.stock) && (
+                      <input
+                        type="number"
+                        value={newProduct.stock}
+                        onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 mt-2"
+                        placeholder="Enter custom stock amount"
+                        min="0"
+                      />
+                    )}
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-2">
@@ -760,7 +1056,7 @@ function ProductsContent() {
                     </label>
                     <select
                       value={newProduct.status}
-                      onChange={(e) => setNewProduct({ ...newProduct, status: e.target.value })}
+                      onChange={(e) => setNewProduct({ ...newProduct, status: e.target.value as 'active' | 'draft' | 'inactive' })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     >
                       <option value="active">Active</option>
@@ -915,10 +1211,11 @@ function ProductsContent() {
                     </label>
                     <select
                       value={editProductData.currency}
-                      onChange={(e) => setEditProductData({ ...editProductData, currency: e.target.value })}
+                      onChange={(e) => setEditProductData({ ...editProductData, currency: e.target.value as 'STX' | 'USDCX' })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     >
-                      <option value="SOL">SOL</option>
+                      <option value="STX">STX</option>
+                      <option value="USDCX">USDCx</option>
                     </select>
                   </div>
                 </div>
@@ -927,13 +1224,30 @@ function ProductsContent() {
                   <label className="block text-xs font-medium text-gray-700 mb-2">
                     Category
                   </label>
-                  <input
-                    type="text"
-                    value={editProductData.category}
-                    onChange={(e) => setEditProductData({ ...editProductData, category: e.target.value })}
+                  <select
+                    value={categories.includes(editProductData.category) ? editProductData.category : 'custom'}
+                    onChange={(e) => {
+                      if (e.target.value !== 'custom') {
+                        setEditProductData({ ...editProductData, category: e.target.value });
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder="e.g., Digital Art, Tools, Templates"
-                  />
+                  >
+                    <option value="">Select category</option>
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                    <option value="custom">+ Add custom category</option>
+                  </select>
+                  {(!categories.includes(editProductData.category) || editProductData.category === '') && (
+                    <input
+                      type="text"
+                      value={editProductData.category}
+                      onChange={(e) => setEditProductData({ ...editProductData, category: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 mt-2"
+                      placeholder="Enter custom category"
+                    />
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -941,13 +1255,32 @@ function ProductsContent() {
                     <label className="block text-xs font-medium text-gray-700 mb-2">
                       Stock
                     </label>
-                    <input
-                      type="text"
-                      value={editProductData.stock}
-                      onChange={(e) => setEditProductData({ ...editProductData, stock: e.target.value })}
+                    <select
+                      value={editProductData.stock === 'unlimited' || ['10', '25', '50', '100'].includes(editProductData.stock) ? editProductData.stock : 'custom'}
+                      onChange={(e) => {
+                        if (e.target.value !== 'custom') {
+                          setEditProductData({ ...editProductData, stock: e.target.value });
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                      placeholder="unlimited or number"
-                    />
+                    >
+                      <option value="unlimited">Unlimited</option>
+                      <option value="10">10</option>
+                      <option value="25">25</option>
+                      <option value="50">50</option>
+                      <option value="100">100</option>
+                      <option value="custom">Custom amount</option>
+                    </select>
+                    {editProductData.stock !== 'unlimited' && !['10', '25', '50', '100'].includes(editProductData.stock) && (
+                      <input
+                        type="number"
+                        value={editProductData.stock}
+                        onChange={(e) => setEditProductData({ ...editProductData, stock: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 mt-2"
+                        placeholder="Enter custom stock amount"
+                        min="0"
+                      />
+                    )}
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-2">
@@ -955,7 +1288,7 @@ function ProductsContent() {
                     </label>
                     <select
                       value={editProductData.status}
-                      onChange={(e) => setEditProductData({ ...editProductData, status: e.target.value })}
+                      onChange={(e) => setEditProductData({ ...editProductData, status: e.target.value as 'active' | 'draft' | 'inactive' })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     >
                       <option value="active">Active</option>

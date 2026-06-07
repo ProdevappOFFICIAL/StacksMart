@@ -71,8 +71,8 @@ if (typeof window !== "undefined") {
 // Request interceptor - adds auth token to requests
 apiClient.interceptors.request.use(
   (config) => {
-    // Add auth token if available
-    const token = localStorage.getItem("auth_token");
+    // Add auth token if available - check both token names for compatibility
+    const token = localStorage.getItem("auth_token") || localStorage.getItem("authToken");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -127,8 +127,9 @@ apiClient.interceptors.response.use(
       const data = error.response.data as ApiResponse;
 
       if (status === 401) {
-        // Clear invalid token
+        // Clear invalid tokens
         localStorage.removeItem("auth_token");
+        localStorage.removeItem("authToken");
         throw new ApiError(
           "UNAUTHORIZED",
           "Authentication required. Please connect your wallet."
@@ -149,6 +150,23 @@ apiClient.interceptors.response.use(
         );
       }
 
+      if (status === 422) {
+        // Unprocessable Entity - validation error
+        console.error('422 Validation Error Response:', {
+          status,
+          data,
+          url: error.config?.url,
+          method: error.config?.method,
+          requestData: error.config?.data
+        });
+        
+        throw new ApiError(
+          data?.error?.code || "VALIDATION_ERROR",
+          data?.error?.message || "Invalid request data. Please check your input.",
+          data?.error?.details || data
+        );
+      }
+
       if (status >= 500) {
         throw new ApiError(
           "SERVER_ERROR",
@@ -158,6 +176,15 @@ apiClient.interceptors.response.use(
 
       // Use error from response if available
       if (data && data.error) {
+        console.error('API Error Response:', {
+          status,
+          code: data.error.code,
+          message: data.error.message,
+          details: data.error.details,
+          url: error.config?.url,
+          method: error.config?.method
+        });
+        
         throw new ApiError(
           data.error.code || "API_ERROR",
           data.error.message || "An error occurred",
@@ -235,6 +262,52 @@ export const authApi = {
         walletAddress,
         signature,
         message,
+      },
+    });
+  },
+
+  async register(
+    email: string,
+    password: string,
+    walletAddress: string
+  ) {
+    return apiRequest<{
+      token: string;
+      user: {
+        id: string;
+        email: string;
+        walletAddress: string;
+        createdAt: string;
+      };
+    }>("/auth/register", {
+      method: "POST",
+      data: {
+        email,
+        password,
+        walletAddress,
+      },
+    });
+  },
+
+  async login(
+    email: string,
+    password: string,
+    walletAddress: string
+  ) {
+    return apiRequest<{
+      token: string;
+      user: {
+        id: string;
+        email: string;
+        walletAddress: string;
+        createdAt: string;
+      };
+    }>("/auth/login", {
+      method: "POST",
+      data: {
+        email,
+        password,
+        walletAddress,
       },
     });
   },
@@ -490,7 +563,7 @@ export const storeApi = {
       name: string;
       description?: string;
       price: number;
-      currency?: "SOL" | "USDC";
+      currency?: "STX" | "USDCX";
       category?: string;
       stock?: number | "unlimited";
       images?: string[];
@@ -524,7 +597,7 @@ export const storeApi = {
       name?: string;
       description?: string;
       price?: number;
-      currency?: "SOL" | "USDC";
+      currency?: "STX" | "USDCX";
       category?: string;
       stock?: number | "unlimited";
       images?: string[];
@@ -612,7 +685,7 @@ export const storeApi = {
       quantity?: number;
       customerWallet: string;
       customerEmail?: string;
-      currency?: "SOL" | "USDC";
+      currency?: "STX" | "USDCX";
     }
   ) {
     return apiRequest<{
@@ -640,7 +713,7 @@ export const storeApi = {
         quantity: checkoutData.quantity || 1,
         customerWallet: checkoutData.customerWallet,
         customerEmail: checkoutData.customerEmail,
-        currency: checkoutData.currency || "SOL",
+        currency: checkoutData.currency || "STX",
       },
     });
   },

@@ -1,545 +1,389 @@
 "use client";
+
 import React, { useState, useEffect } from 'react';
-import { Wallet, Store, Link as LinkIcon, Image as ImageIcon, CheckCircle, ArrowRight, ArrowLeft, Info, AlertCircle, ChevronRight, InfoIcon } from 'lucide-react';
-import Link from 'next/link';
-import Stepper from '@/components/ui/stepper';
+import { useRouter } from 'next/navigation';
+import { useStacks } from '@/lib/use-stacks';
+import { useAuth } from '@/contexts/AuthContext';
+import { abbreviateAddress } from '@/lib/stx-utils';
+import { authApi } from '@/lib/api';
+import { Eye, Smile, Rocket, Check, LogOut, User, Lock, ArrowRight } from 'lucide-react';
+import { BsFillWalletFill } from 'react-icons/bs';
+import { IoChevronForwardSharp } from "react-icons/io5";
 import Image from 'next/image';
-import { useWallet } from '@/hooks/useWallet';
-import { storeApi, uploadApi, ApiError } from '@/lib/api';
-import { validation, formatFileSize } from '@/lib/validation';
-import { WalletConnectButton } from '@/components/wallet/wallet-connect-button';
 
-const steps = ['Connect Wallet', 'Store Details', 'Store Slug', 'Store Icon', 'Complete'];
+// Assuming signMessage returns a promise or handles the flow
+import { openSignatureRequestPopup } from '@stacks/connect';
 
-export default function Onboard() {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [formData, setFormData] = useState({
-    storeName: '',
-    storeSlug: '',
-    storeIcon: null as File | null,
-    storeIconUrl: '',
-    description: '',
-  });
+const AuthFlow = () => {
+  const router = useRouter();
+  const { userData, connectWallet, disconnectWallet, userSession } = useStacks();
+  const { setToken } = useAuth();
+  
+  // State Management
+  const [step, setStep] = useState(1);
+  const [isSigning, setIsSigning] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [createdStore, setCreatedStore] = useState<{
-    id: string;
-    name: string;
-    slug: string;
-    status: string;
-    description?: string;
-    icon?: string;
-    ownerId: string;
-    createdAt: string;
-  } | null>(null);
-  const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
-  const [checkingSlug, setCheckingSlug] = useState(false);
+  
+  // Auth Mode: 'signup' or 'login'
+  const [authMode, setAuthMode] = useState('signup'); 
+  
+  // Credentials State
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [feedback, setFeedback] = useState({ message: '', type: '' }); // type: 'success' | 'error'
 
-  const {
-    isConnected,
-    walletAddress,
-    error: walletError,
-    isWalletDetected
-  } = useWallet();
+// Helper to clear feedback after 5 seconds
+useEffect(() => {
+  if (feedback.message) {
+    const timer = setTimeout(() => setFeedback({ message: '', type: '' }), 5000);
+    return () => clearTimeout(timer);
+  }
+}, [feedback]);
 
-
-
-
-  // Check slug availability with debounce
   useEffect(() => {
-    if (!formData.storeSlug.trim()) {
-      setSlugAvailable(null);
+    if (userData && step === 1) {
+      setStep(2);
+    }
+  }, [userData, step]);
+
+  const steps = [
+    { id: 1, title: 'Connect Wallet' },
+    { id: 2, title: 'Sign message' },
+    { id: 3, title: authMode === 'signup' ? 'Create Account' : 'Welcome Back' },
+  ];
+
+  const handleNextStep = () => {
+    // Validate wallet connection before proceeding to next step
+    const address = userData?.profile?.stxAddress?.mainnet || userData?.stxAddress;
+    if (step === 1 && !address) {
+      setFeedback({ 
+        message: 'Please connect your wallet first', 
+        type: 'error' 
+      });
       return;
     }
-
-    const timeoutId = setTimeout(async () => {
-      setCheckingSlug(true);
-      try {
-        await storeApi.getStoreBySlug(formData.storeSlug);
-        setSlugAvailable(false); // Store exists, slug not available
-      } catch (error) {
-        if (error instanceof ApiError && error.code === 'NOT_FOUND') {
-          setSlugAvailable(true); // Store not found, slug available
-        } else {
-          setSlugAvailable(null); // Error checking
-        }
-      } finally {
-        setCheckingSlug(false);
-      }
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [formData.storeSlug]);
-
-  const handleNext = async () => {
-    if (currentStep === 3) {
-      // Upload icon and create store
-      await handleCreateStore();
-    } else if (currentStep < steps.length - 1) {
-      setCurrentStep(currentStep + 1);
-    }
+    
+    if (step < steps.length) setStep(step + 1);
   };
 
-  const handlePrevious = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
-  const handleInputChange = (field: string, value: unknown) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    setError(null);
-  };
-
-  const canProceed = () => {
-    switch (currentStep) {
-      case 0:
-        return isConnected;
-      case 1:
-        return formData.storeName.trim().length >= 2;
-      case 2:
-        const slugValidation = validation.storeSlug(formData.storeSlug);
-        return !slugValidation && slugAvailable === true;
-      case 3:
-        return true; // Icon is optional
-      default:
-        return false;
-    }
-  };
-
-  const handleCreateStore = async () => {
-    setIsLoading(true);
-    setError(null);
-
+  const handleSignMessage = async () => {
+    setIsSigning(true);
     try {
-      let storeIconUrl = '';
-
-      // Upload icon if provided
-      if (formData.storeIcon) {
-        const uploadResult = await uploadApi.uploadStoreIcon(formData.storeIcon);
-        storeIconUrl = uploadResult.url;
+   
+    openSignatureRequestPopup({
+      message: "Sign in to StacksMart \nStacksMart is a decentralized eccomerce based on Stacks L2 Bitcion",
+      userSession, // Use the userSession from useStacks
+      onFinish: (data) => {
+        console.log("Signature:", data.signature);
+        console.log("Public key:", data.publicKey);
+        setStep(3);
+      },
+      onCancel: () => {
+        console.log("User cancelled signing");
       }
+    });
 
-      // Create store
-      const storeData = {
-        storeName: formData.storeName,
-        storeSlug: formData.storeSlug,
-        storeIcon: storeIconUrl,
-        description: formData.description,
-      };
-
-      const store = await storeApi.createStore(storeData);
-      setCreatedStore(store);
-      setCurrentStep(4); // Move to success step
-    } catch (err) {
-      const errorMessage = err instanceof ApiError
-        ? err.message
-        : 'Failed to create store. Please try again.';
-      setError(errorMessage);
+     
+    } catch (error) {
+      console.error("Signature failed", error);
     } finally {
-      setIsLoading(false);
+      setIsSigning(false);
     }
   };
+const handleAuthSubmit = async (e: React.FormEvent) => {
+  if (e) e.preventDefault();
+  setIsLoading(true);
+  setFeedback({ message: '', type: '' }); // Reset feedback
 
+  const walletAddress = userData?.profile?.stxAddress?.mainnet || userData?.stxAddress || "";
+  
+  // Validate wallet address before proceeding
+  if (!walletAddress) {
+    setFeedback({ 
+      message: 'Wallet address not found. Please reconnect your wallet.', 
+      type: 'error' 
+    });
+    setIsLoading(false);
+    setStep(1); // Go back to wallet connection step
+    return;
+  }
+  
+  console.log('Auth attempt:', {
+    mode: authMode,
+    email: username,
+    walletAddress,
+  });
 
+  try {
+    let result;
+    
+    if (authMode === 'signup') {
+      result = await authApi.register(username, password, walletAddress);
+    } else {
+      result = await authApi.login(username, password, walletAddress);
+    }
 
+    console.log('Auth result:', result);
 
+    if (result.token) {
+      console.log('Token received, storing...');
+      setToken(result.token);
+      
+      setFeedback({ 
+        message: `${authMode === 'signup' ? 'Account created' : 'Login'} successful! Redirecting...`, 
+        type: 'success' 
+      });
 
+      // Short delay so they can see the success message
+      setTimeout(() => router.push('/admin'), 1500);
+    } else {
+      throw new Error('No authentication token received');
+    }
+
+  } catch (error: unknown) {
+    console.error('Auth error:', error);
+    let errorMessage = 'Authentication failed';
+    
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    
+    setFeedback({ message: errorMessage, type: 'error' });
+  } finally {
+    setIsLoading(false);
+  }
+};
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex flex-col w-full min-h-screen items-center bg-white p-6 font-sans text-slate-900">
+      <div className="flex flex-row w-full h-full">
+        <div className="flex flex-col w-full h-full">
+          <Image src={`/Stacks_Store_icon.png`} width={100} height={100} className="mb-6" alt="logo" />
 
-      {/* Header */}
-      <header className="bg-white border-b border-gray-700">
-        <div className="flex w-full items-center justify-between max-w-7xl mx-auto text-black px-4 py-4">
-          <div className="flex items-center gap-2">
-            <Image src={'/Stacks_Store_icon.png'}
-              height={80}
-              width={80}
-              alt='SolStore_Logo' />
-          </div>
-          <InfoIcon/>
-
-        
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-4xl mx-auto  text-black px-4 py-12">
-        {/* Progress Stepper */}
-        <div className="mb-12">
-          <Stepper steps={steps} currentStep={currentStep} />
-        </div>
-
-     
-
-        {/* Error Display */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <div className="flex items-center gap-2 text-red-800">
-              <AlertCircle className="w-5 h-5" />
-              <div className="flex-1">
-                <p className="text-xs">{error}</p>
-                {error.includes('Backend server is not running') && (
-                  <div className="mt-2 text-xs">
-                    <p>Solution:</p>
-                    <ul className="list-disc list-inside ml-2 space-y-1">
-                      <li>Start your backend server: <code className="bg-gray-100 px-1 rounded">npm run dev</code> in backend folder</li>
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Step Content */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-700 p-8">
-          {currentStep === 0 && (
-            <div className="text-center space-y-6">
-              <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto">
-                <Wallet className="w-8 h-8 text-indigo-600" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900">Connect Your Wallet</h2>
-              <p className="text-gray-600 max-w-md mx-auto">
-                Connect your Solana wallet to start creating your Web3 store and receive payments in SOL.
-              </p>
-
-              {isWalletDetected && !isConnected && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-md mx-auto">
-                  <div className="text-blue-800 text-xs">
-                    <p className="font-medium mb-1">How to connect:</p>
-                    <ol className="list-decimal list-inside space-y-1 text-xs">
-                      <li>Click &quot;Connect Wallet&quot; below</li>
-                      <li>Approve the connection in your Phantom wallet popup</li>
-                      <li>Sign the authentication message</li>
-                    </ol>
-                  </div>
-                </div>
-              )}
-
-              {!isWalletDetected && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-w-md mx-auto">
-                  <div className="flex items-center gap-2 text-yellow-800">
-                    <AlertCircle className="w-5 h-5" />
-                    <p className="text-xs">
-                      Phantom wallet not detected.
-                      <a
-                        href="https://phantom.app/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline ml-1"
-                      >
-                        Install Phantom
-                      </a>
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {walletError && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-w-md mx-auto">
-                  <div className="flex items-center gap-2 text-red-800">
-                    <AlertCircle className="w-5 h-5" />
-                    <div className="flex-1">
-                      <p className="text-xs">{walletError}</p>
-                      {walletError.includes('cancelled') || walletError.includes('rejected') ? (
-                        <p className="text-xs mt-1 text-red-600">
-                          Click &quot;Connect Wallet&quot; again and approve the connection in your Phantom wallet.
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-
-
-              <div className="max-w-md mx-auto">
-                <WalletConnectButton
-                  onSuccess={(address: string) => {
-                    console.log('Wallet connected successfully:', address);
-                  }}
-                  onError={(error: string) => {
-                    setError(error);
-                  }}
-                />
-              </div>
-
-              {isConnected && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-md mx-auto">
-                  <div className="text-blue-800 text-xs">
-                    <p className="font-medium mb-1">✅ Ready to continue!</p>
-                    <p className="text-xs">Your wallet is connected and authenticated. Click &quot;Next&quot; to proceed.</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {currentStep === 1 && (
-            <div className="space-y-6">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Store className="w-8 h-8 text-indigo-600" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900">Name Your Store</h2>
-                <p className="text-gray-600">Choose a name that represents your brand and products.</p>
-              </div>
-              <div className="max-w-md mx-auto space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-2">
-                    Store Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.storeName}
-                    onChange={(e) => handleInputChange('storeName', e.target.value)}
-                    placeholder="Enter your store name"
-                    className="w-full text-black px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    maxLength={255}
-                  />
-                  {formData.storeName && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {formData.storeName.length}/255 characters
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-2">
-                    Store Description (Optional)
-                  </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => handleInputChange('description', e.target.value)}
-                    placeholder="Describe what your store sells..."
-                    rows={3}
-                    className="w-full text-black px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
-                    maxLength={1000}
-                  />
-                  {formData.description && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {formData.description.length}/1000 characters
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {currentStep === 2 && (
-            <div className="space-y-6">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <LinkIcon className="w-8 h-8 text-indigo-600" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900">Create Store URL</h2>
-                <p className="text-gray-600">Choose a unique URL slug for your store.</p>
-              </div>
-              <div className="max-w-md mx-auto">
-                <label className="block text-xs font-medium text-gray-700 mb-2">
-                  Store Slug
-                </label>
-                <div className="mb-2">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-blue-800">
-                      <Info className="w-4 h-4" />
-                      <p className="text-xs">
-                        Reserved names like &quot;admin&quot;, &quot;store&quot;, &quot;explore&quot; etc. cannot be used
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
-                  <span className="px-3 py-3 bg-gray-400/20 text-gray-500 text-xs">
-                    solstore.vercel.app/
+          {/* Wallet Status Header */}
+          {userData && (
+            <div className="flex items-center gap-3 mb-8">
+              <div className="flex items-center bg-slate-50 border border-slate-200 rounded-lg shadow-sm">
+                <div className="flex items-center gap-2 px-3 py-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-slate-600 text-sm font-medium">
+                    {abbreviateAddress(userData.profile?.stxAddress?.mainnet || userData.stxAddress || '')}
                   </span>
-                  <input
-                    type="text"
-                    value={formData.storeSlug}
-                    onChange={(e) => handleInputChange('storeSlug', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                    placeholder="your-store"
-                    className="flex-1 px-3 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 border-0 outline-none"
-                  />
                 </div>
-
-                {/* Slug validation and availability indicator */}
-                {formData.storeSlug && (
-                  <div className="mt-2">
-                    {(() => {
-                      const validationError = validation.storeSlug(formData.storeSlug);
-                      if (validationError) {
-                        return <p className="text-xs text-red-600">✗ {validationError}</p>;
-                      }
-                      if (checkingSlug) {
-                        return <p className="text-xs text-gray-500">Checking availability...</p>;
-                      }
-                      if (slugAvailable === true) {
-                        return <p className="text-xs text-green-600">✓ Slug is available</p>;
-                      }
-                      if (slugAvailable === false) {
-                        return <p className="text-xs text-red-600">✗ Slug is already taken</p>;
-                      }
-                      return null;
-                    })()}
-                  </div>
-                )}
+                <button
+                  type="button"
+                  onClick={disconnectWallet}
+                  className="px-3 py-2 text-slate-400 hover:text-red-500 hover:bg-slate-100 rounded-r-lg transition-colors border-l border-slate-200"
+                  title="Disconnect Wallet"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
               </div>
             </div>
           )}
 
-          {currentStep === 3 && (
-            <div className="space-y-6">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <ImageIcon className="w-8 h-8 text-indigo-600" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900">Store Icon</h2>
-                <p className="text-gray-600">Upload an icon for your store (optional).</p>
-              </div>
-              <div className="max-w-md mx-auto">
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/gif,image/webp"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] || null;
-                      if (file) {
-                        // Validate file
-                        const sizeError = validation.fileSize(file, 4);
-                        const typeError = validation.fileType(file, [
-                          'image/jpeg', 'image/png', 'image/gif', 'image/webp'
-                        ]);
+          <div className="w-full max-w-xl">
+            {/* Debug Auth Status */}
+        
+            {/* Stepper Header */}
+            <div className="flex items-center gap-4 mb-12">
+              {steps.map((s, idx) => {
+                const isCompleted = step > s.id;
+                const isActive = step === s.id;
 
-                        if (sizeError || typeError) {
-                          setError(sizeError || typeError);
-                          return;
-                        }
-                      }
-                      handleInputChange('storeIcon', file);
-                    }}
-                    className="hidden"
-                    id="store-icon"
-                  />
-                  <label htmlFor="store-icon" className="cursor-pointer">
-                    {formData.storeIcon ? (
-                      <div className="space-y-2">
-                        <div className="w-16 h-16 bg-green-100 rounded-lg flex items-center justify-center mx-auto">
-                          <CheckCircle className="w-8 h-8 text-green-600" />
-                        </div>
-                        <p className="text-green-600 font-medium">{formData.storeIcon.name}</p>
-                        <p className="text-xs text-gray-500">{formatFileSize(formData.storeIcon.size)}</p>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            handleInputChange('storeIcon', null);
-                          }}
-                          className="text-xs text-red-600 hover:text-red-700"
-                        >
-                          Remove
-                        </button>
+                return (
+                  <React.Fragment key={s.id}>
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-baseline gap-2">
+                        <span className={`text-xl font-bold transition-colors ${isActive || isCompleted ? 'text-slate-900' : 'text-slate-300'}`}>
+                          0{s.id}
+                        </span>
+                        <span className={`text-sm font-medium transition-colors ${isActive || isCompleted ? 'text-slate-600' : 'text-slate-300'}`}>
+                          {s.title}
+                        </span>
                       </div>
-                    ) : (
-                      <div>
-                        <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-600">Click to upload store icon</p>
-                        <p className="text-xs text-gray-400 mt-2">PNG, JPG, GIF, WebP up to 4MB</p>
+                      
+                      <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all duration-500
+                        ${isCompleted ? 'bg-blue-600 border-blue-600' : ''}
+                        ${isActive ? 'border-dashed border-blue-600 bg-white shadow-md' : 'border-solid border-slate-200 '}
+                      `}>
+                        {isCompleted ? (
+                          <Check size={20} className="text-white stroke-[3]" />
+                        ) : (
+                          isActive && <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse" />
+                        )}
                       </div>
+                    </div>
+
+                    {idx < steps.length - 1 && (
+                      <div className={`flex-grow h-[5px] rounded-full mt-10 transition-colors duration-500 ${isCompleted ? 'bg-blue-600' : 'bg-slate-800/20'}`} />
                     )}
-                  </label>
-                </div>
-              </div>
+                  </React.Fragment>
+                );
+              })}
             </div>
-          )}
 
-          {currentStep === 4 && (
-            <div className="text-center space-y-6">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-                <CheckCircle className="w-8 h-8 text-green-600" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900">Store Created Successfully!</h2>
-              <p className="text-gray-600 max-w-md mx-auto">
-                Your Web3 store is ready. You can now start adding products and accepting SOL payments.
-              </p>
-              {createdStore && (
-                <div className="bg-gray-50 rounded-lg p-6 max-w-md mx-auto border border-gray-400">
-                  <h3 className="font-medium text-gray-900 mb-2 text-left ">Store Details:</h3>
-                  <div className="text-left space-y-2 text-xs">
-                    <p><span className="font-medium ">Name:</span> {createdStore.name}</p>
-                    <p><span className="font-medium">URL:</span><a href={`https://web-store-mauve.vercel.app/${createdStore.slug}`} className='hover:underline hover:text-blue-600'> web-store-mauve.vercel.app/{createdStore.slug}</a></p>
-                    <p><span className="font-medium">Wallet:</span> {walletAddress?.slice(0, 8)}...{walletAddress?.slice(-8)}</p>
-                    <p><span className="font-medium">Status:</span> {createdStore.status}</p>
+            {/* Content Body */}
+            <div className="space-y-6">
+              {/* Feedback Message */}
+{feedback.message && (
+  <div className={`p-4 rounded-lg flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-300 ${
+    feedback.type === 'success' 
+      ? 'bg-green-50 border border-green-200 text-green-700' 
+      : 'bg-red-50 border border-red-200 text-red-700'
+  }`}>
+    {feedback.type === 'success' ? <Check size={18} /> : <Lock size={18} />}
+    <p className="text-sm font-medium">{feedback.message}</p>
+  </div>
+)}
+              <h2 className="text-3xl font-bold tracking-tight text-slate-900">
+                {step === 3 ? (authMode === 'signup' ? 'Create Account' : 'Login') : `Step ${step}`}
+              </h2>
+              
+              {/* STEP 1: CONNECT */}
+              {step === 1 && (
+                <div className="space-y-6">
+                  <div className="space-y-2 text-lg text-slate-600 leading-relaxed">
+                    <p>StacksMart is a decentralised eccomerce platform.</p>
+                    <p>To access StackMart, you need to connect your wallet.</p>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-8 pt-4">
+                    {!userData ? (
+                      <button
+                        onClick={connectWallet}
+                        className="group relative overflow-hidden bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 text-sm font-medium rounded-lg transition-all duration-300 hover:shadow-lg shadow-blue-200"
+                      >
+                        <span className="relative flex items-center gap-2">
+                          <BsFillWalletFill className="w-4 h-4" />
+                          Connect Wallet
+                        </span>
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={handleNextStep} 
+                        className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white font-bold rounded-full hover:bg-blue-700 transition-all shadow-md"
+                      >
+                        Proceed <IoChevronForwardSharp />
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
-              <div className="flex gap-4 justify-center">
-                <Link
-                  href='/admin'
-                  className="flex items-center gap-1 bg-indigo-600 text-white px-8 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
-                  
-                >
-                 <ChevronRight/> Go to Dashboard
-                </Link>
-                {createdStore && (
-                  <Link
-                    href={`/${createdStore.slug}`}
-                    className="bg-gray-600 text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-700 transition-colors"
+
+              {/* STEP 2: SIGN */}
+              {step === 2 && (
+                <div className="py-12 flex flex-col items-center justify-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                  <p className="text-slate-500 mb-6 text-sm">Please sign the authentication message in your wallet</p>
+                  <button
+                    onClick={handleSignMessage}
+                    disabled={isSigning}
+                    className="px-8 py-3 rounded-md shadow bg-blue-600 text-white font-bold hover:bg-blue-700 transition-all disabled:opacity-50 disabled:bg-slate-300"
                   >
-                    View Store
-                  </Link>
-                )}
+                    {isSigning ? 'Signing...' : 'Sign Message with Wallet'}
+                  </button>
+                </div>
+              )}
+
+              {/* STEP 3: LOGIN / SIGNUP */}
+              {step === 3 && (
+                <form onSubmit={handleAuthSubmit} className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                  {/* Show connected wallet */}
+                  {(userData?.profile?.stxAddress?.mainnet || userData?.stxAddress) && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2 text-sm">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <span className="text-blue-700 font-medium">
+                        Wallet: {abbreviateAddress(userData.profile?.stxAddress?.mainnet || userData.stxAddress || '')}
+                      </span>
+                    </div>
+                  )}
+                  
+                  <div className="space-y-2">
+                
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                      <input 
+                        required
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder="Identifier"
+                        className="w-full  border border-slate-200 rounded-md py-3 pl-10 pr-4 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                 
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                      <input 
+                        required
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                          className="w-full  border border-slate-200 rounded-md py-3 pl-10 pr-4 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none"
+                        />
+                    </div>
+                  </div>
+
+                  <div className="pt-4 space-y-4">
+                    <button
+                      type="submit"
+                      disabled={!username || !password || isLoading}
+                      className="w-full py-4 rounded shadow bg-blue-600 text-white font-bold hover:bg-blue-700 transition-all disabled:opacity-50 disabled:bg-slate-300 shadow-blue-200 flex items-center justify-center gap-2"
+                    >
+                      {isLoading ? 'Processing...' : authMode === 'signup' ? 'Create Account' : 'Login'}
+                      {!isLoading && <ArrowRight size={18} />}
+                    </button>
+
+                    <p className="text-center text-sm text-slate-500">
+                      {authMode === 'signup' ? 'Already have an account?' : "Don't have an account?"}{' '}
+                      <button 
+                        type="button"
+                        onClick={() => setAuthMode(authMode === 'signup' ? 'login' : 'signup')}
+                        className="text-blue-600 font-bold hover:underline"
+                      >
+                        {authMode === 'signup' ? 'Login' : 'Sign Up'}
+                      </button>
+                    </p>
+                  </div>
+                </form>
+              )}
+
+              <hr className="border-slate-100 my-8" />
+
+              {/* Footer Icons */}
+              <div className="space-y-4 text-sm text-slate-400">
+                <div className="flex items-start gap-3">
+                  <Eye size={18} className="text-slate-300" />
+                  <p>All rights reserved. We will never do anything without your approval.</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Smile size={18} className="text-slate-300" />
+                  <p>Code is <span className="underline cursor-pointer hover:text-slate-600">open-source.</span></p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Rocket size={18} className="text-slate-300" />
+                  <p>StacksMart v1.0</p>
+                </div>
               </div>
             </div>
-          )}
+          </div>
         </div>
 
-     
-
-        {/* Navigation Buttons */}
-        {currentStep < 4 && (
-          <div className="flex justify-between mt-8">
-            <button
-              onClick={handlePrevious}
-              disabled={currentStep === 0}
-              className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${currentStep === 0
-                ? 'text-gray-400 cursor-not-allowed'
-                : 'text-gray-700 hover:bg-gray-100'
-                }`}
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Previous
-            </button>
-
-            <button
-              onClick={handleNext}
-              disabled={isLoading || !canProceed()}
-              className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${
-                !isLoading && canProceed()
-                  ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-            >
-              {isLoading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Creating Store...
-                </>
-              ) : currentStep === 3 ? (
-                <>
-                  Create Store
-                  <CheckCircle className="w-4 h-4" />
-                </>
-              ) : (
-                <>
-                  Next
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </div>
-        )}
-      </main>
+        <div className="hidden lg:block w-full h-full relative">
+          <Image
+            src={'/illustration.png'}
+            width={1600}
+            height={1400}
+            alt="StacksMart_Dashboard"
+            className="w-full h-full object-cover rounded-lg"
+          />
+        </div>
+      </div>
     </div>
   );
-}
+};
+
+export default AuthFlow;

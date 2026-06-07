@@ -55,7 +55,7 @@ export const useCheckout = () => {
             quantity?: number;
             customerWallet: string;
             customerEmail?: string;
-            currency?: "SOL" | "USDC";
+            currency?: "STX" | "USDCX";
         }
     ): Promise<CheckoutSession> => {
         setIsCreating(true);

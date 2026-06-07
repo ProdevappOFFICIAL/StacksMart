@@ -17,7 +17,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { storeApi, ApiError } from '@/lib/api';
-import { useWallet } from '@/hooks/useWallet';
+import { useAuth } from '@/contexts/AuthContext';
+import { IoAnalytics, IoBagCheckOutline } from 'react-icons/io5';
 
 interface SidebarProps {
   currentStore?: string;
@@ -34,13 +35,15 @@ interface StoreData {
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/admin/store' },
+   { icon: IoAnalytics, label: 'Analytics', href: '/admin/analytics' },
+    { icon: IoBagCheckOutline, label: 'Checkout', href: '/admin/checkout' },
   { icon: ShoppingCart, label: 'Orders', href: '/admin/store/orders' },
   { icon: Package, label: 'Products', href: '/admin/store/products' },
   { icon: Settings, label: 'Settings', href: '/admin/store/settings' },
 ];
 
 export default function Sidebar({ currentStore }: SidebarProps) {
-  const { isConnected } = useWallet();
+  const { isAuthenticated } = useAuth();
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isStoreDropdownOpen, setIsStoreDropdownOpen] = useState(false);
@@ -52,7 +55,7 @@ export default function Sidebar({ currentStore }: SidebarProps) {
   // Load stores from API
   useEffect(() => {
     const loadStores = async () => {
-      if (!isConnected) {
+      if (!isAuthenticated) {
         setStores([]);
         setLoading(false);
         return;
@@ -77,7 +80,7 @@ export default function Sidebar({ currentStore }: SidebarProps) {
     };
 
     loadStores();
-  }, [isConnected]);
+  }, [isAuthenticated]);
 
   const selectedStore = stores.find(store => store.slug === currentStore) || stores[0];
 
@@ -121,7 +124,7 @@ export default function Sidebar({ currentStore }: SidebarProps) {
             <div className="w-5 h-5 border-2 border-gray-300 border-t-indigo-600 rounded-full animate-spin" />
             {!isCollapsed && <span className="ml-2 text-xs text-gray-600">Loading stores...</span>}
           </div>
-        ) : !isConnected ? (
+        ) : !isAuthenticated ? (
           <div className={`p-3 bg-yellow-50 border border-yellow-200  ${isCollapsed ? 'flex justify-center' : ''}`}>
             {isCollapsed ? (
               <div className="relative group">
@@ -210,7 +213,7 @@ export default function Sidebar({ currentStore }: SidebarProps) {
                       }`}
                     onClick={() => setIsStoreDropdownOpen(false)}
                   >
-                    {getStoreIcon(store)}
+                   
                     <div className="flex-1">
                       <p className="font-medium text-gray-900 text-xs">{store.name}</p>
                       <p className="text-xs text-gray-500">/{store.slug}</p>

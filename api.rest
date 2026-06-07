@@ -1,0 +1,233 @@
+# SolStore API - Authentication Endpoints
+# Base URL: http://localhost:4000
+
+@baseUrl = http://localhost:4000
+@apiVersion = v1
+
+
+# Store the token from login/register responses here
+@authToken = YOUR_JWT_TOKEN_HERE
+
+###############################################################################
+# AUTHENTICATION ENDPOINTS
+###############################################################################
+
+### 1. Register User
+# POST {{baseUrl}}/{{apiVersion}}/auth/register
+POST {{baseUrl}}/{{apiVersion}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{testEmail}}",
+  "password": "{{testPassword}}",
+  "walletAddress": "{{testWalletAddress}}"
+}
+
+### 2. Register User - Different wallet for testing
+POST {{baseUrl}}/{{apiVersion}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "user2@example.com",
+  "password": "password456",
+  "walletAddress": "8WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWN"
+}
+
+### 3. Login User
+POST {{baseUrl}}/{{apiVersion}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{testEmail}}",
+  "password": "{{testPassword}}",
+  "walletAddress": "{{testWalletAddress}}"
+}
+
+### 4. Wallet Connect (existing endpoint)
+POST {{baseUrl}}/{{apiVersion}}/auth/wallet/connect
+Content-Type: application/json
+
+{
+  "walletAddress": "{{testWalletAddress}}",
+  "signature": "{{testSignature}}",
+  "message": "{{testMessage}}"
+}
+
+### 5. Verify Token
+GET {{baseUrl}}/{{apiVersion}}/auth/verify
+Authorization: Bearer {{authToken}}
+
+###############################################################################
+# ERROR TESTING SCENARIOS
+###############################################################################
+
+### Register - Duplicate Email
+POST {{baseUrl}}/{{apiVersion}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{testEmail}}",
+  "password": "newpassword",
+  "walletAddress": "7WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWO"
+}
+
+### Register - Duplicate Wallet Address
+POST {{baseUrl}}/{{apiVersion}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "newemail@example.com",
+  "password": "password789",
+  "walletAddress": "{{testWalletAddress}}"
+}
+
+### Register - Invalid Email Format
+POST {{baseUrl}}/{{apiVersion}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "invalid-email",
+  "password": "{{testPassword}}",
+  "walletAddress": "{{testWalletAddress}}"
+}
+
+### Register - Short Password
+POST {{baseUrl}}/{{apiVersion}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "shortpass@example.com",
+  "password": "123",
+  "walletAddress": "6WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWP"
+}
+
+### Register - Invalid Wallet Address
+POST {{baseUrl}}/{{apiVersion}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "invalidwallet@example.com",
+  "password": "{{testPassword}}",
+  "walletAddress": "invalid-wallet"
+}
+
+### Login - Wrong Password
+POST {{baseUrl}}/{{apiVersion}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{testEmail}}",
+  "password": "wrongpassword",
+  "walletAddress": "{{testWalletAddress}}"
+}
+
+### Login - Wrong Wallet Address
+POST {{baseUrl}}/{{apiVersion}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{testEmail}}",
+  "password": "{{testPassword}}",
+  "walletAddress": "8WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWN"
+}
+
+### Login - Non-existent User
+POST {{baseUrl}}/{{apiVersion}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "nonexistent@example.com",
+  "password": "{{testPassword}}",
+  "walletAddress": "5WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWQ"
+}
+
+### Login - Wallet Not Found
+POST {{baseUrl}}/{{apiVersion}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{testEmail}}",
+  "password": "{{testPassword}}",
+  "walletAddress": "1WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWR"
+}
+
+
+###############################################################################
+# VALIDATION TESTING
+###############################################################################
+
+### Register - Missing Fields
+POST {{baseUrl}}/{{apiVersion}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{testEmail}}"
+}
+
+### Login - Missing Fields
+POST {{baseUrl}}/{{apiVersion}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{testEmail}}"
+}
+
+### Wallet Connect - Missing Fields
+POST {{baseUrl}}/{{apiVersion}}/auth/wallet/connect
+Content-Type: application/json
+
+{
+  "walletAddress": "{{testWalletAddress}}"
+}
+
+###############################################################################
+# HEALTH CHECK
+###############################################################################
+
+### Health Check
+GET {{baseUrl}}/health
+
+### API Info
+GET {{baseUrl}}/
+
+###############################################################################
+# USAGE INSTRUCTIONS
+###############################################################################
+
+# 1. Start your server: npm run dev
+# 2. Update the @authToken variable with the token from register/login responses
+# 3. Run the requests in order:
+#    - Register a user first
+#    - Login with the same credentials
+#    - Copy the token from the response
+#    - Update @authToken variable
+#    - Test the verify endpoint
+# 4. Test error scenarios to ensure proper validation
+# 5. Use different email/wallet combinations for testing edge cases
+
+###############################################################################
+# EXPECTED RESPONSES
+###############################################################################
+
+# Successful Register/Login Response:
+# {
+#   "success": true,
+#   "data": {
+#     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+#     "user": {
+#       "id": "clxxxxx",
+#       "email": "test@example.com",
+#       "walletAddress": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+#       "createdAt": "2024-01-01T00:00:00.000Z"
+#     }
+#   }
+# }
+
+# Error Response:
+# {
+#   "success": false,
+#   "error": {
+#     "code": "USER_EXISTS",
+#     "message": "User with this email or wallet address already exists"
+#   }
+# }

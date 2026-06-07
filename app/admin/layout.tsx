@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { WalletService } from "@/lib/wallet";
-import { useWallet } from "@/hooks/useWallet";
+import { useAuth } from "@/contexts/AuthContext";
 import { Loading } from "@/components/ui/loading";
 
 interface AdminLayoutProps {
@@ -11,46 +10,41 @@ interface AdminLayoutProps {
 }
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
+  const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
-  const { isConnected, walletAddress } = useWallet();
-
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const walletService = WalletService.getInstance();
-      const token = walletService.getAuthToken();
-      const connected = walletService.isWalletConnected();
+    console.log('AdminLayout: Auth check - isLoading:', isLoading, 'isAuthenticated:', isAuthenticated);
+    if (!isLoading && !isAuthenticated) {
+      console.log('AdminLayout: No authentication token found, redirecting to onboard...');
+      router.push('/onboard');
+    }
+  }, [isAuthenticated, isLoading, router]);
 
-      // Simple, readable logic
-      if (connected && token) {
-        setIsAuthenticated(true);
-      } else {
-        setIsAuthenticated(false);
-        router.replace("/"); // Use router.replace() instead of redirect()
-      }
-
-      setIsCheckingAuth(false);
-    };
-
-    checkAuth();
-  }, [isConnected, walletAddress, router]);
-
-  // Loading state
-  if (isCheckingAuth) {
+  // Show loading while checking authentication
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loading />
+      <div className="flex flex-col w-full h-full bg-white">
+        <div className="min-h-screen flex items-center justify-center">
+          <Loading />
+        </div>
       </div>
     );
   }
 
-  // Authenticated users see content
-  if (isAuthenticated) {
-    return <div className="flex flex-col w-full h-full bg-white">{children}</div>;
+  // If not authenticated, don't render children (redirect is happening)
+  if (!isAuthenticated) {
+    return (
+      <div className="flex flex-col w-full h-full bg-white">
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <Loading />
+            <p className="mt-4 text-gray-600">Redirecting to login...</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
-  // While redirecting (prevents flicker)
-  return null;
+  return <div className="flex flex-col w-full h-full bg-white">{children}</div>;
 }
