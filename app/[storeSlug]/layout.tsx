@@ -48,14 +48,14 @@ export async function generateMetadata(
   if (!store) {
     // Store doesn't exist, return basic metadata
     return {
-      title: "Store Not Found | SolStore",
+      title: "Store Not Found | Stacksmart",
       description: "The requested store could not be found."
     };
   }
 
   return {
-    title: `${store.name} | SolStore`,
-    description: store.description || `Shop at ${store.name} - A Web3 store powered by SolStore`,
+    title: `${store.name} | Stacksmart`,
+    description: store.description || `Shop at ${store.name} - A Web3 store powered by Stacksmart`,
     icons: store.icon ? {
       icon: [
         {

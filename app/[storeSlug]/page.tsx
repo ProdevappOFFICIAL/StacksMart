@@ -436,7 +436,7 @@ export default function Store({ params }: StorePageProps) {
                   {storeData.name}
                 </h1>
                 <span className="hidden sm:inline text-gray-400">|</span>
-                <span className="hidden sm:inline text-sm text-gray-600">SolStore</span>
+                <span className="hidden sm:inline text-sm text-gray-600">StacksMart</span>
               </div>
             </div>
 
@@ -891,7 +891,7 @@ export default function Store({ params }: StorePageProps) {
                   className="flex items-center gap-2 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-xs sm:text-sm text-gray-700 w-full sm:w-auto justify-center"
                 >
                   <ShoppingCart className="w-4 h-4 flex-shrink-0" />
-                  <span className="whitespace-nowrap">Create your SolStore Today</span>
+                  <span className="whitespace-nowrap">Create your StacksMart Today</span>
                 </Link>
 
                 <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-xs text-gray-500">

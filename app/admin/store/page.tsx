@@ -109,7 +109,7 @@ function StoreDashboardContent() {
         analyticsData = {
           revenue: {
             total: rawAnalytics.revenue?.total || '0',
-            currency: rawAnalytics.revenue?.currency || 'SOL',
+            currency: rawAnalytics.revenue?.currency || 'STX',
             change: rawAnalytics.revenue?.change || '0%'
           },
           orders: {
@@ -213,7 +213,7 @@ function StoreDashboardContent() {
         const calculatedAnalytics = {
           revenue: {
             total: totalRevenue.toFixed(4),
-            currency: 'SOL',
+            currency: 'STX',
             change: totalRevenue > 0 ? `+${((totalRevenue / Math.max(1, totalRevenue)) * 100).toFixed(1)}%` : '0%'
           },
           orders: {
@@ -415,7 +415,7 @@ function StoreDashboardContent() {
                     <div>
                       <p className="text-xs text-gray-600">Total Revenue</p>
                       <p className="text-2xl font-bold text-gray-900">
-                        {analytics.revenue?.total || '0'} {analytics.revenue?.currency || 'SOL'}
+                        {analytics.revenue?.total || '0'} {analytics.revenue?.currency || 'STX'}
                       </p>
                       <div className="flex items-center gap-1 mt-1">
                         {analytics.revenue?.change && getTrendIcon(analytics.revenue.change)}
@@ -527,7 +527,7 @@ function StoreDashboardContent() {
                           </div>
                           <div className="text-right ml-4">
                             <p className="font-semibold text-gray-900">
-                              {order.amount || '0'} SOL
+                              {order.amount || '0'} STX
                             </p>
                           </div>
                         </div>
@@ -571,7 +571,7 @@ function StoreDashboardContent() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-semibold text-gray-900">{product.revenue || '0'} SOL</p>
+                            <p className="font-semibold text-gray-900">{product.revenue || '0'} STX</p>
                           </div>
                         </div>
                       ))}
@@ -795,7 +795,7 @@ export default function StoreDashboard() {
         </div>
       </div>
     }>
-      <OnboardingCarousel/>
+     
       <StoreDashboardContent />
     </Suspense>
   );
