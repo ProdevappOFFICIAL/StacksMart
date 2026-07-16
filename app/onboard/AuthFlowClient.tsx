@@ -11,8 +11,6 @@ import { BsFillWalletFill } from 'react-icons/bs';
 import { IoChevronForwardSharp } from "react-icons/io5";
 import Image from 'next/image';
 
-import { openSignatureRequestPopup } from '@stacks/connect';
-
 const AuthFlow = () => {
   const router = useRouter();
   const { userData, connectWallet, disconnectWallet } = useStacks();
@@ -72,7 +70,10 @@ const AuthFlow = () => {
       // 1. Get nonce from backend
       const { nonce, message: backendMessage } = await authApi.getNonce();
 
-      // 2. Open signature request
+      // 2. Dynamically import @stacks/connect to avoid Turbopack module factory errors
+      const { openSignatureRequestPopup } = await import('@stacks/connect');
+
+      // 3. Open signature request
       openSignatureRequestPopup({
         message: backendMessage,
         //    userSession, // Use the userSession from useStacks
