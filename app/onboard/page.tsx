@@ -1,18 +1,19 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import AuthFlowClient from './AuthFlowClient';
 
 export default function Page() {
-  const [mounted, setMounted] = useState(false);
+  const [AuthFlow, setAuthFlow] = useState<any>(null);
 
   useEffect(() => {
-    setMounted(true);
+    import('./AuthFlowClient').then((mod) => {
+      setAuthFlow(() => mod.default);
+    }).catch(console.error);
   }, []);
 
-  if (!mounted) {
+  if (!AuthFlow) {
     return null;
   }
 
-  return <AuthFlowClient />;
+  return <AuthFlow />;
 }
