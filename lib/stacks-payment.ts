@@ -1,4 +1,3 @@
-import { openContractCall } from "@stacks/connect";
 import {
   uintCV,
 } from "@stacks/transactions";
@@ -34,8 +33,9 @@ export async function payForEscrowOrder(
     contractName,
   } = payload;
 
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
     try {
+      const { openContractCall } = await import("@stacks/connect");
       // 2. Open the Wallet Extension Popup
       openContractCall({
       network: STACKS_TESTNET,

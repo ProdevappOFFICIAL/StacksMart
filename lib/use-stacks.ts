@@ -1,4 +1,3 @@
-import { disconnect, isConnected, getLocalStorage, request } from '@stacks/connect';
 import { useEffect, useState, useMemo } from 'react';
 
 export function useStacks() {
@@ -12,19 +11,24 @@ export function useStacks() {
     const savedAddress = typeof window !== 'undefined' ? localStorage.getItem('stacks_wallet_address') : null;
     if (savedAddress) {
       setAddress(savedAddress);
-    } else if (isConnected()) {
-      // Fallback to older blockstack connect approach
-      const data = getLocalStorage();
-      const stxAddress = data?.addresses?.stx?.[0]?.address;
-      if (stxAddress) {
-        setAddress(stxAddress);
-        localStorage.setItem('stacks_wallet_address', stxAddress);
-      }
+    } else {
+      import('@stacks/connect').then(({ isConnected, getLocalStorage }) => {
+        if (isConnected()) {
+          // Fallback to older blockstack connect approach
+          const data = getLocalStorage();
+          const stxAddress = data?.addresses?.stx?.[0]?.address;
+          if (stxAddress) {
+            setAddress(stxAddress);
+            localStorage.setItem('stacks_wallet_address', stxAddress);
+          }
+        }
+      }).catch(err => console.error("Failed to load @stacks/connect", err));
     }
   }, []);
 
   const connectWallet = async () => {
     try {
+      const { request } = await import('@stacks/connect');
       // Initiates the wallet pop-up
       const result = await request('stx_getAddresses', {
         network: 'testnet',
@@ -46,11 +50,16 @@ export function useStacks() {
     }
   };
 
-  const disconnectWallet = () => {
-    // Clears the wallet cache from local storage
-    disconnect(); 
-    setAddress(null);
-    localStorage.removeItem('stacks_wallet_address');
+  const disconnectWallet = async () => {
+    try {
+      const { disconnect } = await import('@stacks/connect');
+      // Clears the wallet cache from local storage
+      disconnect(); 
+      setAddress(null);
+      localStorage.removeItem('stacks_wallet_address');
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   // Mocking the old UserData structure for backward compatibility

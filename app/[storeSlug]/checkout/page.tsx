@@ -5,7 +5,6 @@ import { Plus, Minus, X, Wallet, Mail, ArrowLeft, Loader2, ShoppingCart } from '
 import { useCart, CartItem } from '@/hooks/useCart';
 import { useStacksWallet } from '@/hooks/useStacksWallet';
 import { storeApi } from '@/lib/api';
-import { request } from '@stacks/connect';
 import Image from 'next/image';
 
 interface CheckoutData {
@@ -190,6 +189,7 @@ export default function CheckoutPage() {
 
             let txId = '';
             try {
+                const { request } = await import('@stacks/connect');
                 const response = await request('stx_transferStx', {
                     recipient: storeData.owner.walletAddress,
                     amount: amountInMicroStx,

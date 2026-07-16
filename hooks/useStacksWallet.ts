@@ -1,7 +1,5 @@
 // React hook for Stacks wallet management using @stacks/connect
 import { useState, useEffect, useCallback } from "react";
-import { connect, disconnect as stacksDisconnect } from "@stacks/connect";
-
 interface UseStacksWalletReturn {
   isConnected: boolean;
   walletAddress: string | null;
@@ -56,6 +54,7 @@ export function useStacksWallet(options: UseStacksWalletOptions = { autoConnect:
     setError(null);
 
     try {
+      const { connect } = await import('@stacks/connect');
       // Use @stacks/connect to open wallet dialog
       const response = await connect({
         forceWalletSelect: true,
