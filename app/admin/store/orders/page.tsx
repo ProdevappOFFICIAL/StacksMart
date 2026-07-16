@@ -103,6 +103,11 @@ function OrdersContent() {
           settings: store.settings as Record<string, unknown> || {}
         });
 
+        // Silently sync pending orders
+        storeApi.syncPendingOrders(store.id).catch(err => {
+          console.error('Failed to background sync pending orders:', err);
+        });
+
         // Get orders
         const ordersData = await storeApi.getStoreOrders(store.id, {
           page: currentPage,
@@ -329,7 +334,7 @@ function OrdersContent() {
                           <td className="py-4 px-4">
                             {order.paymentTxHash ? (
                               <a
-                                href={`https://explorer.solana.com/tx/${order.paymentTxHash}`}
+                                href={`https://explorer.hiro.so/tx/${order.paymentTxHash}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs"
@@ -360,8 +365,8 @@ function OrdersContent() {
                         <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                         <h3 className="text-lg font-medium text-gray-900 mb-2">No orders found</h3>
                         <p className="text-gray-600">
-                          {searchTerm || statusFilter !== 'all' 
-                            ? 'Try adjusting your search or filters.' 
+                          {searchTerm || statusFilter !== 'all'
+                            ? 'Try adjusting your search or filters.'
                             : 'Orders will appear here when customers make purchases.'
                           }
                         </p>
@@ -387,11 +392,11 @@ function OrdersContent() {
                 >
                   Previous
                 </button>
-                
+
                 <span className="px-4 py-2 text-xs text-gray-600">
                   Page {currentPage} of {orders.pagination.totalPages}
                 </span>
-                
+
                 <button
                   onClick={() => setCurrentPage(Math.min(orders.pagination.totalPages, currentPage + 1))}
                   disabled={currentPage === orders.pagination.totalPages}
@@ -402,7 +407,7 @@ function OrdersContent() {
               </div>
             </div>
           )}
-          
+
           {orders && orders.orders.length === 0 && (
             <div className="text-center text-xs text-gray-500 mt-6">
               No orders match your current filters.

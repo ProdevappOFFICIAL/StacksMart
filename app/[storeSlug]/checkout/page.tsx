@@ -1,22 +1,19 @@
 'use client'
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Plus, Minus, X, Wallet, Mail, ArrowLeft, Loader2, ShoppingCart, Clock } from 'lucide-react';
+import { Plus, Minus, X, Wallet, Mail, ArrowLeft, Loader2, ShoppingCart } from 'lucide-react';
 import { useCart, CartItem } from '@/hooks/useCart';
-import { useWallet } from '@/hooks/useWallet';
+import { useStacksWallet } from '@/hooks/useStacksWallet';
 import { storeApi } from '@/lib/api';
+import { request } from '@stacks/connect';
 import Image from 'next/image';
-import { QRCodeSVG } from '@/components/ui/qr-code';
 
 interface CheckoutData {
     orderId: string;
     orderNumber: string;
-    paymentURL: string;
-    qrCode: string;
     amount: string;
     currency: string;
-    reference: string;
-    expiresAt: string;
+    txId: string;
     product: {
         id: string;
         name: string;
@@ -50,7 +47,7 @@ interface PaymentStatus {
     updatedAt: string;
 }
 
-type CheckoutStep = 'form' | 'payment' | 'processing' | 'success' | 'failed';
+type CheckoutStep = 'form' | 'processing' | 'payment' | 'verifying' | 'success' | 'failed';
 
 export default function CheckoutPage() {
     const params = useParams();
@@ -58,12 +55,12 @@ export default function CheckoutPage() {
     const storeSlug = params.storeSlug as string;
 
     const { cart, getStoreItems, updateQuantity, removeFromCart, clearCart } = useCart();
-    const { isConnected, walletAddress, connectWallet, isConnecting, error: walletError } = useWallet();
+    const { isConnected, walletAddress, connectWallet, disconnectWallet, isConnecting, error: walletError } = useStacksWallet({ autoConnect: false });
 
     // Form state
     const [customerEmail, setCustomerEmail] = useState('');
     const [error, setError] = useState<string | null>(null);
-    const [storeData, setStoreData] = useState<{ id: string; name: string } | null>(null);
+    const [storeData, setStoreData] = useState<{ id: string; name: string; owner: { walletAddress: string } } | null>(null);
     const [items, setItems] = useState<CartItem[]>([]);
     const [isCartLoaded, setIsCartLoaded] = useState(false);
 
@@ -71,8 +68,8 @@ export default function CheckoutPage() {
     const [currentStep, setCurrentStep] = useState<CheckoutStep>('form');
     const [checkoutData, setCheckoutData] = useState<CheckoutData | null>(null);
     const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | null>(null);
-    const [timeRemaining, setTimeRemaining] = useState<number>(0);
-    
+    const [isVerifying, setIsVerifying] = useState(false);
+
     // Polling refs
     const statusPollingRef = useRef<NodeJS.Timeout | null>(null);
     const countdownRef = useRef<NodeJS.Timeout | null>(null);
@@ -108,81 +105,12 @@ export default function CheckoutPage() {
         }
     }, [items.length, router, storeSlug, isCartLoaded]);
 
-    // Payment status polling
-    const startStatusPolling = (orderId: string) => {
-        if (statusPollingRef.current) {
-            clearInterval(statusPollingRef.current);
-        }
-
-        const pollStatus = async () => {
-            try {
-                if (!storeData) return;
-                
-                const status = await storeApi.getCheckoutStatus(storeData.id, orderId);
-                setPaymentStatus(status);
-
-                if (status.status === 'completed') {
-                    setCurrentStep('success');
-                    stopStatusPolling();
-                    // Clear cart after successful payment
-                    clearCart();
-                    // Redirect to success page after a short delay
-                    setTimeout(() => {
-                        router.push(`/${storeSlug}/success?orderId=${status.orderId}&orderNumber=${status.orderNumber}`);
-                    }, 2000);
-                } else if (status.status === 'failed') {
-                    setCurrentStep('failed');
-                    stopStatusPolling();
-                }
-            } catch (err) {
-                console.error('Error polling payment status:', err);
-                // Continue polling on error, but maybe reduce frequency
-            }
-        };
-
-        // Poll immediately, then every 3 seconds
-        pollStatus();
-        statusPollingRef.current = setInterval(pollStatus, 3000);
-    };
-
-    const stopStatusPolling = () => {
-        if (statusPollingRef.current) {
-            clearInterval(statusPollingRef.current);
-            statusPollingRef.current = null;
-        }
-    };
-
-    // Countdown timer for payment expiration
-    const startCountdown = (expiresAt: string) => {
-        if (countdownRef.current) {
-            clearInterval(countdownRef.current);
-        }
-
-        const updateCountdown = () => {
-            const now = new Date().getTime();
-            const expiry = new Date(expiresAt).getTime();
-            const remaining = Math.max(0, expiry - now);
-            
-            setTimeRemaining(Math.floor(remaining / 1000));
-
-            if (remaining <= 0) {
-                setCurrentStep('failed');
-                setError('Payment session has expired. Please try again.');
-                stopStatusPolling();
-                if (countdownRef.current) {
-                    clearInterval(countdownRef.current);
-                }
-            }
-        };
-
-        updateCountdown();
-        countdownRef.current = setInterval(updateCountdown, 1000);
-    };
-
     // Cleanup on unmount
     useEffect(() => {
         return () => {
-            stopStatusPolling();
+            if (statusPollingRef.current) {
+                clearInterval(statusPollingRef.current);
+            }
             if (countdownRef.current) {
                 clearInterval(countdownRef.current);
             }
@@ -192,7 +120,7 @@ export default function CheckoutPage() {
     const itemsTotal = items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
     const total = itemsTotal;
 
-    const formatCurrency = (amount: number, currency: string = 'SOL') => {
+    const formatCurrency = (amount: number, currency: string = 'STX') => {
         return `${amount.toFixed(2)} ${currency}`;
     };
 
@@ -201,42 +129,32 @@ export default function CheckoutPage() {
         return emailRegex.test(email);
     };
 
-    const formatTime = (seconds: number) => {
-        const minutes = Math.floor(seconds / 60);
-        const remainingSeconds = seconds % 60;
-        return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-    };
-
     const handleRetryPayment = () => {
         setCurrentStep('form');
         setCheckoutData(null);
         setPaymentStatus(null);
         setError(null);
-        stopStatusPolling();
+        if (statusPollingRef.current) {
+            clearInterval(statusPollingRef.current);
+            statusPollingRef.current = null;
+        }
         if (countdownRef.current) {
             clearInterval(countdownRef.current);
         }
     };
 
-    const handleCopyPaymentURL = async () => {
-        if (checkoutData?.paymentURL) {
-            try {
-                await navigator.clipboard.writeText(checkoutData.paymentURL);
-                // Show success feedback (you could add a toast here)
-                console.log('Payment URL copied to clipboard');
-            } catch (err) {
-                console.error('Failed to copy payment URL:', err);
-            }
-        }
-    };
-
-;
+    ;
 
     const handlePlaceOrder = async () => {
         // Reset error state
         setError(null);
 
         // Validation checks
+        if (!storeData || !storeData.owner?.walletAddress) {
+            setError('Store configuration error: missing wallet address');
+            return;
+        }
+
         if (!isConnected || !walletAddress) {
             setError('Please connect your wallet to continue');
             return;
@@ -264,20 +182,66 @@ export default function CheckoutPage() {
             // In a real implementation, you might want to create separate orders for each item
             const firstItem = items[0];
 
-            // Create checkout session using the API
-            const checkout = await createCheckoutSession(firstItem);
-            setCheckoutData(checkout);
+            // 1. Prepare Stacks transaction
+            const amountInMicroStx = Math.floor(parseFloat(firstItem.price) * firstItem.quantity * 1000000).toString();
+            const tempOrderRef = `Order-${Date.now()}`;
 
-            console.log('Checkout created:', checkout);
+            console.log('Starting direct Stacks payment flow...');
 
-            // Move to payment step
-            setCurrentStep('payment');
+            let txId = '';
+            try {
+                const response = await request('stx_transferStx', {
+                    recipient: storeData.owner.walletAddress,
+                    amount: amountInMicroStx,
+                    memo: tempOrderRef,
+                    network: 'testnet' // Hardcoded based on plan
+                });
 
-            // Start countdown timer
-            startCountdown(checkout.expiresAt);
+                const txResponse = response as { txid?: string; txId?: string };
+                console.log('Transaction ID:', txResponse.txid || txResponse.txId);
+                txId = txResponse.txid || txResponse.txId || '';
+            } catch (err) {
+                console.error('Stacks payment error:', err);
+                setError(err instanceof Error ? err.message : 'Failed to complete Stacks payment');
+                setCurrentStep('failed');
+                return;
+            }
 
-            // Start polling for payment status
-            startStatusPolling(checkout.orderId);
+            // 2. Create the order in the backend as PENDING with the txId
+            try {
+                const order = await storeApi.createOrder(storeData.id, {
+                    productId: firstItem.id,
+                    quantity: firstItem.quantity,
+                    customerWallet: walletAddress,
+                    customerEmail: customerEmail.trim(),
+                    currency: (firstItem.currency as "STX" | "USDCX") || 'STX',
+                    paymentTxHash: txId
+                });
+
+                setCheckoutData({
+                    orderId: order.id,
+                    orderNumber: order.orderId,
+                    amount: order.amount,
+                    currency: order.currency,
+                    txId: order.paymentTxHash,
+                    product: {
+                        id: firstItem.id,
+                        name: firstItem.name,
+                        price: firstItem.price
+                    },
+                    store: {
+                        id: storeData.id,
+                        name: storeData.name
+                    }
+                });
+
+                // Move to verifying step
+                setCurrentStep('verifying');
+            } catch (err) {
+                console.error('Failed to create order in backend:', err);
+                setError('Payment submitted but failed to create order. Please contact support with TxID: ' + txId);
+                setCurrentStep('failed');
+            }
 
         } catch (err) {
             console.error('Checkout error:', err);
@@ -287,37 +251,9 @@ export default function CheckoutPage() {
                 errorMessage = err.message;
             }
 
-            // Handle specific API errors
-            if (errorMessage.includes('NETWORK_ERROR')) {
-                errorMessage = 'Unable to connect to payment service. Please check your connection and try again.';
-            } else if (errorMessage.includes('UNAUTHORIZED')) {
-                errorMessage = 'Authentication failed. Please reconnect your wallet and try again.';
-            } else if (errorMessage.includes('PRODUCT_OUT_OF_STOCK')) {
-                errorMessage = 'This product is currently out of stock.';
-            }
-
             setError(errorMessage);
             setCurrentStep('form');
         }
-    };
-
-    const createCheckoutSession = async (item: CartItem): Promise<CheckoutData> => {
-        // First get store data to get store ID
-        if (!storeData) {
-            throw new Error('Store data not loaded');
-        }
-
-        if (!walletAddress) {
-            throw new Error('Wallet not connected');
-        }
-
-        return await storeApi.createCheckoutSession(storeData.id, {
-            productId: item.id,
-            quantity: item.quantity,
-            customerWallet: walletAddress,
-            customerEmail: customerEmail.trim(),
-            currency: (item.currency as "STX" | "USDCX") || 'STX'
-        });
     };
 
     // Show loading state while cart or store data is loading
@@ -357,101 +293,71 @@ export default function CheckoutPage() {
         <main className="p-4 space-y-6 pb-24 flex items-center justify-center min-h-[60vh]">
             <div className="text-center">
                 <Loader2 className="w-12 h-12 animate-spin text-purple-600 mx-auto mb-4" />
-                <h2 className="text-lg font-semibold text-gray-900 mb-2">Creating Payment Session</h2>
-                <p className="text-gray-600">Please wait while we prepare your payment...</p>
+                <h2 className="text-lg font-semibold text-gray-900 mb-2">Processing Payment in Wallet</h2>
+                <p className="text-gray-600">Please approve the transaction in your Stacks wallet...</p>
             </div>
         </main>
     );
 
-    const renderPaymentStep = () => (
-        <main className="p-4 space-y-6 pb-24">
-            {/* Payment Timer */}
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                    <Clock className="w-4 h-4 text-orange-600" />
-                    <span className="text-sm font-medium text-orange-900">Payment Session Active</span>
-                </div>
-                <p className="text-sm text-orange-800">
-                    Time remaining: <span className="font-mono font-bold">{formatTime(timeRemaining)}</span>
-                </p>
-            </div>
+    const handleVerifyOrder = async () => {
+        if (!checkoutData || !storeData) return;
+        setIsVerifying(true);
+        try {
+            const res = await storeApi.verifyOrder(storeData.id, checkoutData.orderId);
+            if (res.status === 'completed') {
+                clearCart();
+                setCurrentStep('success');
+                setTimeout(() => {
+                    router.push(`/${storeSlug}/success?orderId=${checkoutData.orderId}&orderNumber=${checkoutData.orderNumber}`);
+                }, 2000);
+            } else if (res.status === 'failed') {
+                setError('Payment failed or was aborted on-chain.');
+                setCurrentStep('failed');
+            } else {
+                // Still pending
+                alert('Transaction is still pending on the blockchain. Please try again in a few moments.');
+            }
+        } catch (err) {
+            console.error('Verification error:', err);
+            alert('Error verifying payment. Please try again.');
+        } finally {
+            setIsVerifying(false);
+        }
+    };
 
-            {/* Payment Instructions */}
-            <section className="space-y-4">
-                <h2 className="text-lg font-semibold text-gray-900">Complete Your Payment</h2>
-                
+    const renderVerifyingStep = () => (
+        <main className="p-4 space-y-6 pb-24">
+            <div className="text-center">
+                <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+                <h2 className="text-lg font-semibold text-gray-900 mb-2">Verifying your payment</h2>
+                <p className="text-gray-600 mb-6">
+                    Your transaction has been submitted. It may take a few minutes to confirm on the blockchain.
+                </p>
+
                 {checkoutData && (
-                    <div className="bg-gray-50 rounded-lg p-4 space-y-4">
+                    <div className="bg-gray-50 rounded-lg p-4 space-y-4 mb-6">
                         <div className="text-center">
-                            <div className="text-2xl font-bold text-purple-600 mb-2">
-                                {checkoutData.amount} {checkoutData.currency}
-                            </div>
                             <div className="text-sm text-gray-600">
                                 Order: {checkoutData.orderNumber}
                             </div>
-                        </div>
-
-                        {/* QR Code */}
-                        <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
-                            <div className="flex justify-center mb-4">
-                                <QRCodeSVG 
-                                    value={checkoutData.paymentURL}
-                                    size={200}
-                                    className="border border-gray-100 rounded-lg"
-                                    errorCorrectionLevel="M"
-                                />
-                            </div>
-                            <p className="text-sm text-gray-600 mb-2">
-                                Scan QR code with your <strong> Phantom Solana wallet </strong>
-                            </p>
-                            <p className="text-xs text-gray-500">
-                                Or use the payment URL below
-                            </p>
-                        </div>
-
-                        {/* Payment URL */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700">Payment URL:</label>
-                            <div className="flex gap-2">
-                                <input
-                                    type="text"
-                                    value={checkoutData.paymentURL}
-                                    readOnly
-                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm font-mono"
-                                />
-                                <button
-                                    onClick={handleCopyPaymentURL}
-                                    className="px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
-                                >
-                                    Copy
-                                </button>
+                            <div className="text-xs text-gray-500 mt-1 break-all">
+                                TxID: {checkoutData.txId}
                             </div>
                         </div>
-
                     </div>
                 )}
-            </section>
 
-            {/* Payment Status */}
-            <section className="space-y-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                        <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                        <span className="text-sm font-medium text-blue-900">Waiting for Payment</span>
-                    </div>
-                    <p className="text-sm text-blue-800">
-                        We&apos;re monitoring the blockchain for your payment. This page will update automatically once payment is confirmed.
-                    </p>
-                </div>
-            </section>
-
-            {/* Cancel Button */}
-            <div className="pt-4">
                 <button
-                    onClick={handleRetryPayment}
-                    className="w-full h-12 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-lg transition-colors"
+                    onClick={handleVerifyOrder}
+                    disabled={isVerifying}
+                    className="w-full h-12 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
                 >
-                    Cancel Payment
+                    {isVerifying ? (
+                        <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Checking...
+                        </>
+                    ) : 'Check Status'}
                 </button>
             </div>
         </main>
@@ -488,7 +394,7 @@ export default function CheckoutPage() {
                 <p className="text-gray-600 mb-6">
                     {error || 'Your payment could not be processed. Please try again.'}
                 </p>
-                
+
                 <div className="space-y-3">
                     <button
                         onClick={handleRetryPayment}
@@ -527,7 +433,7 @@ export default function CheckoutPage() {
                             <span className="text-xs font-medium text-gray-900">Connect Wallet</span>
                         </div>
                         <p className="text-xs text-gray-600 mb-3">
-                            Connect your Solana wallet to complete the purchase
+                            Connect your Stacks wallet to complete the purchase
                         </p>
                         <button
                             onClick={connectWallet}
@@ -542,7 +448,7 @@ export default function CheckoutPage() {
                             ) : (
                                 <>
                                     <Wallet className="w-4 h-4" />
-                                    Connect Phantom Wallet
+                                    Connect Stacks Wallet
                                 </>
                             )}
                         </button>
@@ -552,14 +458,22 @@ export default function CheckoutPage() {
                     </div>
                 ) : (
                     <div className="border border-green-300 bg-green-50 rounded-lg p-4">
-                        <div className="flex items-center gap-3">
-                            <Wallet className="w-5 h-5 text-green-600" />
-                            <div>
-                                <span className="text-xs font-medium text-green-900">Wallet Connected</span>
-                                <p className="text-xs text-green-700 font-mono">
-                                    {walletAddress?.slice(0, 8)}...{walletAddress?.slice(-8)}
-                                </p>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <Wallet className="w-5 h-5 text-green-600" />
+                                <div>
+                                    <span className="text-xs font-medium text-green-900">Wallet Connected</span>
+                                    <p className="text-xs text-green-700 font-mono">
+                                        {walletAddress?.slice(0, 8)}...{walletAddress?.slice(-8)}
+                                    </p>
+                                </div>
                             </div>
+                            <button
+                                onClick={disconnectWallet}
+                                className="px-3 py-1.5 bg-green-100 text-green-700 hover:bg-green-200 text-xs font-medium rounded transition-colors"
+                            >
+                                Disconnect
+                            </button>
                         </div>
                     </div>
                 )}
@@ -664,17 +578,17 @@ export default function CheckoutPage() {
                             Items ({items.reduce((sum, item) => sum + item.quantity, 0)})
                         </span>
                         <span className="text-gray-900 font-medium">
-                            {formatCurrency(itemsTotal, items[0]?.currency || 'SOL')}
+                            {formatCurrency(itemsTotal, items[0]?.currency || 'STX')}
                         </span>
                     </div>
                     <div className="flex justify-between text-xs">
                         <span className="text-gray-600">Platform Fee</span>
-                        <span className="text-gray-900 font-medium">0.00 SOL</span>
+                        <span className="text-gray-900 font-medium">0.00 STX</span>
                     </div>
                     <div className="flex justify-between text-xs pt-2 border-t border-gray-200">
                         <span className="text-gray-600">Subtotal</span>
                         <span className="text-gray-900 font-medium">
-                            {formatCurrency(itemsTotal, items[0]?.currency || 'SOL')}
+                            {formatCurrency(itemsTotal, items[0]?.currency || 'STX')}
                         </span>
                     </div>
                 </div>
@@ -699,8 +613,8 @@ export default function CheckoutPage() {
                 return renderCheckoutForm();
             case 'processing':
                 return renderProcessing();
-            case 'payment':
-                return renderPaymentStep();
+            case 'verifying':
+                return renderVerifyingStep();
             case 'success':
                 return renderSuccess();
             case 'failed':
@@ -726,6 +640,7 @@ export default function CheckoutPage() {
                             <div className="text-xs text-gray-500">
                                 {currentStep === 'form' && 'Checkout'}
                                 {currentStep === 'processing' && 'Processing'}
+                                {currentStep === 'verifying' && 'Verifying'}
                                 {currentStep === 'payment' && 'Payment'}
                                 {currentStep === 'success' && 'Success'}
                                 {currentStep === 'failed' && 'Failed'}
@@ -748,7 +663,7 @@ export default function CheckoutPage() {
                             disabled={!isConnected || !customerEmail.trim()}
                             className="w-full h-12 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
                         >
-                            Place Order & Pay {formatCurrency(total, items[0]?.currency || 'SOL')}
+                            Place Order & Pay {formatCurrency(total, items[0]?.currency || 'STX')}
                         </button>
 
                         {!isConnected && (

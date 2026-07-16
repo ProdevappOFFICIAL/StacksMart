@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowRight, Eye, Plus, X, Store, Globe, AlignLeft, LogOut, Upload, Camera } from 'lucide-react';
+import { ArrowRight, Eye, Plus, X, Store, Globe, AlignLeft, LogOut, Upload, Camera, Flame } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { storeApi, uploadApi } from '@/lib/api';
@@ -27,7 +27,7 @@ export default function AdminPage() {
     const [isMounted, setIsMounted] = useState(false);
     const [stores, setStores] = useState<StoreData[]>([]);
     const [loading, setLoading] = useState(true);
-    
+
     // UI States
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
@@ -48,20 +48,13 @@ export default function AdminPage() {
     const loadStoresFromAPI = useCallback(async () => {
         setLoading(true);
         setLoadError(''); // Clear any previous errors
-        
+
         try {
-            console.log('Loading stores from API...');
-            console.log('API Base URL:', process.env.NEXT_PUBLIC_API_URL);
-            console.log('Auth token from context:', token ? 'Present' : 'Not found');
-            console.log('Auth token from localStorage:', localStorage.getItem('auth_token') ? 'Present' : 'Not found');
-            console.log('User data:', userData?.profile?.stxAddress?.mainnet || 'No wallet address');
-            
             const userStores = await storeApi.getUserStores();
-            console.log('Stores loaded successfully:', userStores);
             setStores(userStores);
         } catch (err) {
             console.error('Failed to load stores:', err);
-            
+
             // Handle different types of errors
             if (err instanceof Error) {
                 if (err.message.includes('Authentication required') || err.message.includes('UNAUTHORIZED')) {
@@ -79,13 +72,12 @@ export default function AdminPage() {
         } finally {
             setLoading(false);
         }
-    }, [userData, token]);
+    }, []);
 
     useEffect(() => {
         const initializeAdmin = async () => {
             setIsMounted(true);
             if (isConnected && isMounted) {
-                console.log('User connected, loading stores...');
                 await loadStoresFromAPI();
             }
         };
@@ -99,8 +91,6 @@ export default function AdminPage() {
         setError("");
 
         try {
-            console.log('Creating store with data:', formData);
-            
             // Validate form data
             if (!formData.storeName.trim()) {
                 throw new Error('Store name is required');
@@ -109,19 +99,18 @@ export default function AdminPage() {
                 throw new Error('Store slug is required');
             }
 
-            const newStore = await storeApi.createStore({
+            await storeApi.createStore({
                 storeName: formData.storeName,
                 storeSlug: formData.storeSlug.toLowerCase().replace(/\s+/g, '-'),
                 description: formData.description,
                 storeIcon: formData.storeIcon
             });
-            
-            console.log('Store created successfully:', newStore);
+
             handleCloseModal();
             await loadStoresFromAPI(); // Refresh the list
         } catch (err) {
             console.error('Failed to create store:', err);
-            
+
             if (err instanceof Error) {
                 if (err.message.includes('Authentication required') || err.message.includes('UNAUTHORIZED')) {
                     setError('Authentication required. Please make sure you are signed in.');
@@ -163,8 +152,8 @@ export default function AdminPage() {
             console.log('Uploading store icon:', file.name);
             const uploadResult = await uploadApi.uploadStoreIcon(file);
             console.log('Icon uploaded successfully:', uploadResult);
-            
-            setFormData({...formData, storeIcon: uploadResult.url});
+
+            setFormData({ ...formData, storeIcon: uploadResult.url });
         } catch (err) {
             console.error('Failed to upload icon:', err);
             if (err instanceof Error) {
@@ -188,11 +177,11 @@ export default function AdminPage() {
         if (store.icon && (store.icon.startsWith('http') || store.icon.startsWith('/'))) {
             return (
                 <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                    <Image 
-                        src={store.icon} 
-                        alt={store.name} 
-                        width={48} 
-                        height={48} 
+                    <Image
+                        src={store.icon}
+                        alt={store.name}
+                        width={48}
+                        height={48}
                         className="w-full h-full object-cover"
                         onError={(e) => {
                             // Fallback to initial letter if image fails to load
@@ -210,50 +199,85 @@ export default function AdminPage() {
         );
     };
 
-    if (loading || !isMounted) {
-        return <div className="min-h-screen flex items-center justify-center"><Loading /></div>;
-    }
+
 
     // Show wallet connection prompt if not connected
     if (!isConnected) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="bg-white p-8 rounded-xl shadow-lg text-center max-w-md">
-                    <div className="mb-6">
-                        <Image src="/Stacks_Store_icon.png" height={64} width={64} alt="Logo" className="mx-auto mb-4" />
-                        <h2 className="text-2xl font-bold text-gray-900 mb-2">Connect Your Wallet</h2>
-                        <p className="text-gray-600">You need to connect your Stacks wallet to access the admin dashboard.</p>
-                    </div>
-                    <button 
-                        onClick={connectWallet}
-                        className="w-full bg-indigo-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
-                    >
-                        Connect Wallet
-                    </button>
+            <div className="flex flex-col h-full min-h-screen w-full bg-gray-50 text-black">
+                {/* Top Banner */}
+                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-5 px-4 text-center text-xs font-medium">
+                    <span className="inline-flex items-center gap-2">
+                        <Flame className="w-4 h-4 text-yellow-400" />
+                        <span>
+                            <strong>Admin Access</strong> Connect your wallet to manage your stores.
+                        </span>
+                    </span>
                 </div>
+
+                {/* Header */}
+                <header className="bg-white border-b border-gray-700">
+                    <div className="w-full mx-auto px-4 sm:px-8 lg:px-16 py-4 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Image src="/Stacks_Store_icon.png" height={60} width={60} className="sm:h-20 sm:w-20" alt="Logo" />
+                        </div>
+                        <div className="flex items-center gap-2 sm:gap-4">
+                            <button
+                                onClick={connectWallet}
+                                className="px-6 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-500 font-medium"
+                            >
+                                Connect Wallet
+                            </button>
+                        </div>
+                    </div>
+                </header>
+
+                <main className="flex-1 flex items-center justify-center p-8">
+                    <div className="text-center bg-white p-8 rounded-xl shadow-lg border border-gray-100 max-w-md w-full">
+                        <Store className="mx-auto text-indigo-500 mb-4" size={48} />
+                        <h2 className="text-2xl font-bold text-gray-900 mb-2">Connect Your Wallet</h2>
+                        <p className="text-gray-600 mb-6">You need to connect your Stacks wallet to access the admin dashboard.</p>
+                        <button
+                            onClick={connectWallet}
+                            className="w-full bg-indigo-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+                        >
+                            Connect Wallet
+                        </button>
+                    </div>
+                </main>
             </div>
         );
     }
 
     return (
         <div className="flex flex-col h-full min-h-screen w-full bg-gray-50 text-black">
+            {/* Top Banner */}
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-5 px-4 text-center text-xs font-medium">
+                <span className="inline-flex items-center gap-2">
+                    <Flame className="w-4 h-4 text-yellow-400" />
+                    <span>
+                        <strong>Welcome back!</strong> Ready to manage your stores and grow your business?
+                    </span>
+                </span>
+            </div>
+
             {/* Header */}
-            <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-                <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Image src="/Stacks_Store_icon.png" height={40} width={40} alt="Logo" />
-                        <h1 className="font-bold text-xl">My Stores</h1>
+            <header className="bg-white border-b border-gray-700 sticky top-0 z-10">
+                <div className="w-full mx-auto px-4 sm:px-8 lg:px-16 py-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Image src="/Stacks_Store_icon.png" height={60} width={60} className="sm:h-20 sm:w-20" alt="Logo" />
+                        <h1 className="font-bold text-xl ml-2 hidden sm:block">My Stores</h1>
                     </div>
                     <div className="flex items-center gap-4">
-                        <button 
+                        <button
                             onClick={() => setIsModalOpen(true)}
-                            className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2"
+                            className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2 shadow-sm"
                         >
-                            <Plus size={18} /> Create Store
+                            <Plus size={18} /> <span className="hidden sm:inline">Create Store</span>
                         </button>
-                        <button 
+                        <button
                             onClick={logout}
-                            className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-200 transition-colors flex items-center gap-2"
+                            className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 border border-gray-200"
                             title="Logout"
                         >
                             <LogOut size={18} />
@@ -265,44 +289,28 @@ export default function AdminPage() {
             {/* Main Content */}
             <main className="max-w-4xl mx-auto w-full px-4 py-8">
                 {loadError && (
-                    <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg border border-red-200">
-                        <p className="font-medium">Error loading stores</p>
-                        <p className="text-sm mt-1">{loadError}</p>
-                        <div className="mt-3 flex gap-2">
-                            <button 
-                                onClick={() => {
-                                    setLoadError('');
-                                    loadStoresFromAPI();
-                                }}
-                                className="text-sm bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded"
-                            >
-                                Try again
-                            </button>
-                            <button 
-                                onClick={() => {
-                                    setLoadError('');
-                                    setStores([]);
-                                    console.log('Using offline mode - no stores to display');
-                                }}
-                                className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded"
-                            >
-                                Continue offline
-                            </button>
-                            <button 
-                                onClick={() => {
-                                    setLoadError('');
-                                    console.log('Testing create store functionality...');
-                                    setIsModalOpen(true);
-                                }}
-                                className="text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded"
-                            >
-                                Test Create Store
-                            </button>
+                    <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg border border-red-200 flex items-center justify-between">
+                        <div>
+                            <p className="font-medium">Error loading stores</p>
+                            <p className="text-sm mt-1">{loadError}</p>
                         </div>
+                        <button
+                            onClick={() => {
+                                setLoadError('');
+                                loadStoresFromAPI();
+                            }}
+                            className="text-sm bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded font-medium"
+                        >
+                            Try again
+                        </button>
                     </div>
                 )}
-                
-                {stores.length === 0 && !loadError ? (
+
+                {loading ? (
+                    <div className="flex items-center justify-center py-20">
+                        <Loading />
+                    </div>
+                ) : stores.length === 0 && !loadError ? (
                     <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed border-gray-200">
                         <Store className="mx-auto text-gray-400 mb-4" size={48} />
                         <h3 className="text-lg font-medium">No stores yet</h3>
@@ -323,7 +331,7 @@ export default function AdminPage() {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <Link href={`/${store.slug}`} className="p-2 text-gray-400 hover:text-gray-600"><Eye size={20}/></Link>
+                                    <Link href={`/${store.slug}`} className="p-2 text-gray-400 hover:text-gray-600"><Eye size={20} /></Link>
                                     <Link href={`/admin/store?store=${store.slug}`} className="bg-gray-100 px-4 py-2 rounded-lg font-medium hover:bg-gray-200 transition-colors">
                                         Manage
                                     </Link>
@@ -344,31 +352,31 @@ export default function AdminPage() {
                                 <X size={24} />
                             </button>
                         </div>
-                        
+
                         <form onSubmit={handleCreateStore} className="p-6 space-y-4">
                             {error && <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">{error}</div>}
-                            
+
                             {/* Store Icon Upload */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                                    <Camera size={14}/> Store Icon
+                                    <Camera size={14} /> Store Icon
                                 </label>
                                 <div className="flex items-center gap-4">
                                     {/* Icon Preview */}
                                     <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center border-2 border-dashed border-gray-300">
                                         {formData.storeIcon ? (
-                                            <Image 
-                                                src={formData.storeIcon} 
-                                                alt="Store icon preview" 
-                                                width={64} 
-                                                height={64} 
+                                            <Image
+                                                src={formData.storeIcon}
+                                                alt="Store icon preview"
+                                                width={64}
+                                                height={64}
                                                 className="w-full h-full object-cover"
                                             />
                                         ) : (
                                             <Store size={24} className="text-gray-400" />
                                         )}
                                     </div>
-                                    
+
                                     {/* Upload Button */}
                                     <div className="flex-1">
                                         <input
@@ -380,11 +388,10 @@ export default function AdminPage() {
                                         />
                                         <label
                                             htmlFor="store-icon"
-                                            className={`inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium cursor-pointer transition-colors ${
-                                                isUploadingIcon 
-                                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                                            className={`inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium cursor-pointer transition-colors ${isUploadingIcon
+                                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                                     : 'bg-white text-gray-700 hover:bg-gray-50'
-                                            }`}
+                                                }`}
                                         >
                                             {isUploadingIcon ? (
                                                 <>
@@ -401,7 +408,7 @@ export default function AdminPage() {
                                         {formData.storeIcon && (
                                             <button
                                                 type="button"
-                                                onClick={() => setFormData({...formData, storeIcon: ''})}
+                                                onClick={() => setFormData({ ...formData, storeIcon: '' })}
                                                 className="ml-2 text-sm text-red-600 hover:text-red-800"
                                             >
                                                 Remove
@@ -411,12 +418,12 @@ export default function AdminPage() {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                                    <Store size={14}/> Store Name
+                                    <Store size={14} /> Store Name
                                 </label>
-                                <input 
+                                <input
                                     required
                                     type="text"
                                     placeholder="Blue Chip NFTs"
@@ -425,41 +432,41 @@ export default function AdminPage() {
                                     onChange={(e) => {
                                         const name = e.target.value;
                                         const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-                                        setFormData({...formData, storeName: name, storeSlug: slug});
+                                        setFormData({ ...formData, storeName: name, storeSlug: slug });
                                     }}
                                 />
                             </div>
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                                    <Globe size={14}/> URL Slug
+                                    <Globe size={14} /> URL Slug
                                 </label>
                                 <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500">
                                     <span className="bg-gray-50 px-3 text-gray-400 text-sm">/</span>
-                                    <input 
+                                    <input
                                         required
                                         type="text"
                                         placeholder="blue-chip"
                                         className="w-full p-2.5 outline-none"
                                         value={formData.storeSlug}
-                                        onChange={(e) => setFormData({...formData, storeSlug: e.target.value})}
+                                        onChange={(e) => setFormData({ ...formData, storeSlug: e.target.value })}
                                     />
                                 </div>
                             </div>
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                                    <AlignLeft size={14}/> Description
+                                    <AlignLeft size={14} /> Description
                                 </label>
-                                <textarea 
+                                <textarea
                                     className="w-full border border-gray-200 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-indigo-500 h-24"
                                     placeholder="Tell the world about your store..."
                                     value={formData.description}
-                                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                 />
                             </div>
 
-                            <button 
+                            <button
                                 disabled={isCreating || isUploadingIcon}
                                 type="submit"
                                 className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"

@@ -1,16 +1,20 @@
 // Wallet utility functions for Solana integration
-import { PublicKey } from '@solana/web3.js';
 import bs58 from 'bs58';
 import { authApi } from './api';
 import { debug } from './debug';
 
+export interface PhantomPublicKey {
+  toBase58(): string;
+  toString(): string;
+}
+
 export interface PhantomWallet {
   isPhantom?: boolean;
-  publicKey?: PublicKey;
+  publicKey?: PhantomPublicKey;
   isConnected?: boolean;
-  connect(opts?: { onlyIfTrusted?: boolean }): Promise<{ publicKey: PublicKey }>;
+  connect(opts?: { onlyIfTrusted?: boolean }): Promise<{ publicKey: PhantomPublicKey }>;
   disconnect(): Promise<void>;
-  signMessage(message: Uint8Array, display?: 'utf8' | 'hex'): Promise<{ signature: Uint8Array; publicKey: PublicKey }>;
+  signMessage(message: Uint8Array, display?: 'utf8' | 'hex'): Promise<{ signature: Uint8Array; publicKey: PhantomPublicKey }>;
   signTransaction(transaction: unknown): Promise<unknown>;
   signAllTransactions(transactions: unknown[]): Promise<unknown[]>;
 }
@@ -157,12 +161,13 @@ export class WalletService {
     token: string;
     user: Record<string, unknown>;
   }> {
-    const message = `Sign in to SolStore\nTimestamp: ${Date.now()}`;
-    
     try {
+      // Get nonce and message from backend
+      const { nonce, message } = await authApi.getNonce();
+      
       const signature = await this.signMessage(message);
       
-      const authResult = await authApi.connectWallet(walletAddress, signature, message);
+      const authResult = await authApi.connectWallet(walletAddress, signature, message, nonce);
       
       // Store auth token
       localStorage.setItem('auth_token', authResult.token);

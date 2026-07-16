@@ -243,29 +243,72 @@ export const healthApi = {
 
 // Auth API functions
 export const authApi = {
+  // ===== NEW: Get nonce for message signing =====
+  async getNonce() {
+    return apiRequest<{
+      nonce: string;
+      timestamp: number;
+      message: string;
+    }>("/auth/nonce", {
+      method: "GET",
+    });
+  },
+
+  // ===== UPDATED: Connect wallet with signature verification =====
   async connectWallet(
     walletAddress: string,
     signature: string,
-    message: string
+    message: string,
+    nonce: string,
+    publicKey?: string
   ) {
+    const data: Record<string, string> = {
+      walletAddress,
+      signature,
+      message,
+      nonce,
+    };
+
+    // Only include publicKey if it has a value
+    if (publicKey && publicKey.trim()) {
+      data.publicKey = publicKey;
+    }
+
     return apiRequest<{
       token: string;
       user: {
         id: string;
         walletAddress: string;
-        email?: string;
         createdAt: string;
       };
     }>("/auth/wallet/connect", {
       method: "POST",
-      data: {
-        walletAddress,
-        signature,
-        message,
-      },
+      data,
     });
   },
 
+  // ===== NEW: Create store profile after wallet authentication =====
+  async createStoreProfile(storeData: {
+    storeName: string;
+    email?: string;
+    phone?: string;
+    storeDescription?: string;
+  }) {
+    return apiRequest<{
+      store: {
+        id: string;
+        name: string;
+        slug: string;
+        walletAddress: string;
+        createdAt: string;
+      };
+    }>("/auth/stores", {
+      method: "POST",
+      data: storeData,
+    });
+  },
+
+  // ===== LEGACY: Register user (kept for backward compatibility) =====
   async register(
     email: string,
     password: string,
@@ -289,6 +332,7 @@ export const authApi = {
     });
   },
 
+  // ===== LEGACY: Login user (kept for backward compatibility) =====
   async login(
     email: string,
     password: string,
@@ -321,6 +365,21 @@ export const authApi = {
       };
     }>("/auth/verify", {
       method: "GET",
+    });
+  },
+
+  // ===== NEW: Update wallet address =====
+  async updateWallet(walletAddress: string) {
+    return apiRequest<{
+      user: {
+        id: string;
+        walletAddress: string;
+        email: string | null;
+        updatedAt: string;
+      };
+    }>("/auth/wallet", {
+      method: "PUT",
+      data: { walletAddress },
     });
   },
 };
@@ -766,6 +825,49 @@ export const storeApi = {
       updatedAt: string;
     }>(`/stores/${storeId}/checkout/${orderId}/status`, {
       method: "GET",
+    });
+  },
+
+  async createOrder(
+    storeId: string,
+    orderData: {
+      productId: string;
+      quantity?: number;
+      customerWallet: string;
+      customerEmail?: string;
+      currency?: "STX" | "USDCX";
+      paymentTxHash: string;
+    }
+  ) {
+    return apiRequest<{
+      id: string;
+      orderId: string;
+      productId: string;
+      customerId: string;
+      amount: string;
+      currency: string;
+      status: string;
+      paymentTxHash: string;
+      createdAt: string;
+    }>(`/stores/${storeId}/orders`, {
+      method: "POST",
+      data: orderData,
+    });
+  },
+
+  async verifyOrder(storeId: string, orderId: string) {
+    return apiRequest<{
+      status: string;
+    }>(`/stores/${storeId}/orders/${orderId}/verify`, {
+      method: "POST",
+    });
+  },
+
+  async syncPendingOrders(storeId: string) {
+    return apiRequest<{
+      updatedCount: number;
+    }>(`/stores/${storeId}/orders/sync`, {
+      method: "POST",
     });
   },
 };

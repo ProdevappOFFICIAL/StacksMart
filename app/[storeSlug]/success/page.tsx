@@ -61,7 +61,7 @@ export default function PaymentSuccessPage() {
         try {
             // First get store data to get store ID
             const store = await storeApi.getStoreBySlug(storeSlug);
-            
+
             // Then get order status
             const orderStatus = await storeApi.getCheckoutStatus(store.id, orderId);
             setOrderData(orderStatus);
@@ -180,7 +180,7 @@ export default function PaymentSuccessPage() {
                                             <Copy className="w-3 h-3 text-gray-500" />
                                         </button>
                                         <button
-                                            onClick={() => window.open(`https://explorer.solana.com/tx/${orderData.transactionSignature}`, '_blank')}
+                                            onClick={() => window.open(`https://explorer.hiro.so/txid/${orderData.transactionSignature}?chain=testnet`, '_blank')}
                                             className="p-1 hover:bg-gray-200 rounded"
                                         >
                                             <ExternalLink className="w-3 h-3 text-gray-500" />

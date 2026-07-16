@@ -98,6 +98,11 @@ function StoreDashboardContent() {
         settings: store.settings as Record<string, unknown> || {}
       });
 
+      // Silently sync pending orders
+      storeApi.syncPendingOrders(store.id).catch(err => {
+        console.error('Failed to background sync pending orders:', err);
+      });
+
       // Try to get analytics from the dedicated endpoint first
       let analyticsData;
       try {
@@ -641,147 +646,6 @@ import {
   ChevronLeft, 
   CheckCircle2 
 } from 'lucide-react';
-
-interface Step {
-  id: number;
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  color: string;
-}
-
-const STEPS: Step[] = [
-  { 
-    id: 1, 
-    title: "Secure your Gateway", 
-    description: "Connect your administrative wallet to authorize smart contract interactions and receive automated distributions.", 
-    icon: <Wallet className="w-8 h-8" />,
-    color: "bg-blue-600"
-  },
-  { 
-    id: 2, 
-    title: "Deploy Infrastructure", 
-    description: "Launch your custom ERC-721 collection contract. This serves as the backbone of your decentralized storefront.", 
-    icon: <Cpu className="w-8 h-8" />,
-    color: "bg-indigo-600"
-  },
-  { 
-    id: 3, 
-    title: "Configure Inventory", 
-    description: "Define product metadata and upload assets to IPFS for permanent, decentralized storage.", 
-    icon: <Layers className="w-8 h-8" />,
-    color: "bg-violet-600"
-  },
-  { 
-    id: 4, 
-    title: "Royalties & Rules", 
-    description: "Set secondary market percentages and whitelist specific jurisdictions for compliant trading.", 
-    icon: <Settings2 className="w-8 h-8" />,
-    color: "bg-purple-600"
-  },
-  { 
-    id: 5, 
-    title: "Initialize Storefront", 
-    description: "Your environment is ready. Flip the switch to start accepting global payments on the blockchain.", 
-    icon: <Rocket className="w-8 h-8" />,
-    color: "bg-emerald-600"
-  },
-];
-
-const OnboardingCarousel: React.FC = () => {
-  const [activeTab, setActiveTab] = useState(0);
-
-  const handleNext = () => setActiveTab((prev) => Math.min(prev + 1, STEPS.length - 1));
-  const handlePrev = () => setActiveTab((prev) => Math.max(prev - 1, 0));
-
-  return (
-    <section className="w-full max-w-5xl mx-auto">
-      <div className="bg-white rounded-[32px] border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden relative">
-        
-        {/* Progress Header */}
-        <div className="flex items-center justify-between px-10 py-6 border-b border-slate-100 bg-slate-50/50">
-          <div className="flex gap-2">
-            {STEPS.map((step, idx) => (
-              <div 
-                key={step.id}
-                className={`h-1.5 w-12 rounded-full transition-all duration-500 ${
-                  idx <= activeTab ? STEPS[activeTab].color : 'bg-slate-200'
-                }`}
-              />
-            ))}
-          </div>
-          <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
-            Phase {activeTab + 1} of 5
-          </span>
-        </div>
-
-        <div className="flex flex-col md:flex-row items-stretch min-h-[400px]">
-          {/* Visual Side (Interactive Background) */}
-          <div className={`hidden md:flex w-2/5 p-12 items-center justify-center transition-colors duration-700 ${STEPS[activeTab].color.replace('bg-', 'bg-opacity-10 bg-')}`}>
-            <div className={`p-8 rounded-[24px] bg-white shadow-2xl shadow-indigo-200 transition-transform duration-500 transform ${activeTab % 2 === 0 ? 'rotate-3' : '-rotate-3'}`}>
-               <div className={`${activeTab === 4 ? 'text-emerald-600' : 'text-indigo-600'}`}>
-                {STEPS[activeTab].icon}
-               </div>
-            </div>
-          </div>
-
-          {/* Content Side */}
-          <div className="flex-1 p-10 md:p-16 flex flex-col justify-center">
-            <div className="mb-6">
-               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold mb-4 uppercase tracking-tighter">
-                <CheckCircle2 className="w-3 h-3" />
-                Onboarding Task
-               </div>
-               <h2 className="text-4xl font-extrabold text-slate-900 tracking-tight mb-4 transition-all duration-300">
-                {STEPS[activeTab].title}
-               </h2>
-               <p className="text-lg text-slate-500 leading-relaxed max-w-md">
-                {STEPS[activeTab].description}
-               </p>
-            </div>
-
-            <div className="flex items-center gap-4 mt-8">
-              <button 
-                onClick={activeTab === STEPS.length - 1 ? () => {} : handleNext}
-                className={`px-8 py-4 rounded-2xl font-bold text-white shadow-lg transition-all active:scale-95 ${STEPS[activeTab].color} hover:brightness-110 shadow-indigo-200`}
-              >
-                {activeTab === STEPS.length - 1 ? 'Launch Dashboard' : 'Continue'}
-              </button>
-              
-              <div className="flex items-center ml-auto gap-2">
-                <button 
-                  disabled={activeTab === 0}
-                  onClick={handlePrev}
-                  className="p-4 rounded-2xl border border-slate-200 text-slate-400 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <button 
-                  disabled={activeTab === STEPS.length - 1}
-                  onClick={handleNext}
-                  className="p-4 rounded-2xl border border-slate-200 text-slate-400 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Footer Support Info */}
-      <div className="mt-6 flex justify-center gap-8 text-slate-400 text-sm font-medium">
-        <span className="flex items-center gap-2 cursor-pointer hover:text-slate-600 transition-colors">
-          View Documentation
-        </span>
-        <span className="flex items-center gap-2 cursor-pointer hover:text-slate-600 transition-colors">
-          Contact Protocol Support
-        </span>
-      </div>
-    </section>
-  );
-};
-
 
 export default function StoreDashboard() {
   return (

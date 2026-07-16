@@ -2,9 +2,9 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/ui/sidebar';
-import { storeApi, uploadApi, ApiError } from '@/lib/api';
+import { storeApi, authApi, uploadApi, ApiError } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
-import { WalletConnectButtonMini } from '@/components/wallet/wallet-connect-button-mini';
+import { useStacksWallet } from '@/hooks/useStacksWallet';
 import {
   Save,
   Upload,
@@ -93,12 +93,12 @@ function StoreSettingsContent() {
   const searchParams = useSearchParams();
   const currentStore = searchParams.get('store') || undefined;
   const { isAuthenticated } = useAuth();
+  const { isConnected, walletAddress, isConnecting, error, connectWallet, disconnectWallet, isWalletDetected } = useStacksWallet();
   const [activeTab, setActiveTab] = useState<string>('general');
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>({ type: null, message: '' });
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [settings, setSettings] = useState<StoreSettings>({
     storeName: '',
     storeDescription: '',
@@ -131,11 +131,6 @@ function StoreSettingsContent() {
       try {
         setLoading(true);
         const storeData = await storeApi.getStoreBySlug(currentStore) as StoreApiResponse;
-
-        // Set wallet address from store owner
-        if (storeData.owner?.walletAddress) {
-          setWalletAddress(storeData.owner.walletAddress);
-        }
 
         setSettings({
           id: storeData.id,
@@ -202,12 +197,62 @@ function StoreSettingsContent() {
       return;
     }
 
+    // Validate required fields
+    if (!settings.storeName.trim()) {
+      setSaveStatus({
+        type: 'error',
+        message: 'Store name is required'
+      });
+      return;
+    }
+
+    if (!settings.storeDescription.trim()) {
+      setSaveStatus({
+        type: 'error',
+        message: 'Store description is required'
+      });
+      return;
+    }
+
+    if (!settings.storeLogo) {
+      setSaveStatus({
+        type: 'error',
+        message: 'Store logo is required'
+      });
+      return;
+    }
+
+    if (!settings.storeBanner) {
+      setSaveStatus({
+        type: 'error',
+        message: 'Store banner is required'
+      });
+      return;
+    }
+
+    // Validate URLs are from UploadThing
+    if (settings.storeLogo && !settings.storeLogo.startsWith('https://utfs.io/')) {
+      setSaveStatus({
+        type: 'error',
+        message: 'Invalid logo URL. Please upload the logo again.'
+      });
+      return;
+    }
+
+    if (settings.storeBanner && !settings.storeBanner.startsWith('https://utfs.io/')) {
+      setSaveStatus({
+        type: 'error',
+        message: 'Invalid banner URL. Please upload the banner again.'
+      });
+      return;
+    }
+
     try {
       setSaveStatus({ type: 'loading', message: 'Saving changes...' });
 
       await storeApi.updateStore(settings.id, {
-        name: settings.storeName,
-        description: settings.storeDescription,
+        name: settings.storeName.trim(),
+        description: settings.storeDescription.trim(),
         iconUrl: settings.storeLogo,
         bannerUrl: settings.storeBanner,
         settings: {
@@ -225,16 +270,37 @@ function StoreSettingsContent() {
         message: 'Settings saved successfully!'
       });
 
-      // Clear success message after 3 seconds
+      // Clear success message after 2 seconds and redirect to store with refresh trigger
       setTimeout(() => {
         setSaveStatus({ type: null, message: '' });
-      }, 3000);
+        // Redirect to store page with refresh parameter to reload store data
+        window.location.href = `/${settings.storeUrl}?refresh=${Date.now()}`;
+      }, 2000);
 
     } catch (error) {
       console.error('Error saving settings:', error);
+
+      let errorMessage = 'Failed to save settings';
+
+      if (error instanceof ApiError) {
+        errorMessage = error.message;
+
+        // If there are validation details, try to extract field-specific errors
+        if (error.details && typeof error.details === 'object') {
+          const details = error.details as { details?: Array<{ message?: string }>; message?: string };
+          /* if (details.details?.length > 0) {
+             // Extract first validation error message
+             const firstError = details.details[0];
+             errorMessage = firstError.message || errorMessage;
+           } else if (details.message) {
+             errorMessage = details.message;
+           }*/
+        }
+      }
+
       setSaveStatus({
         type: 'error',
-        message: error instanceof ApiError ? error.message : 'Failed to save settings'
+        message: errorMessage
       });
     }
   };
@@ -285,6 +351,62 @@ function StoreSettingsContent() {
     }
   };
 
+  const handleWalletConnect = async (): Promise<void> => {
+    try {
+      // First connect the wallet using the hook
+      await connectWallet();
+
+      // Wait a bit for the state to update
+      setTimeout(async () => {
+        if (walletAddress) {
+          try {
+            // Then save the wallet address to the API
+            await authApi.updateWallet(walletAddress);
+            setSaveStatus({
+              type: 'success',
+              message: 'Wallet connected and saved successfully!'
+            });
+            setTimeout(() => {
+              setSaveStatus({ type: null, message: '' });
+            }, 2000);
+          } catch (error) {
+            console.error('Error saving wallet to API:', error);
+            setSaveStatus({
+              type: 'error',
+              message: error instanceof ApiError ? error.message : 'Failed to save wallet address'
+            });
+          }
+        }
+      }, 500);
+    } catch (error) {
+      console.error('Error connecting wallet:', error);
+    }
+  };
+
+  const handleWalletDisconnect = async (): Promise<void> => {
+    try {
+      // Disconnect the wallet using the hook
+      await disconnectWallet();
+
+      // Note: We don't clear the wallet from the API on disconnect
+      // The wallet address remains saved for the user's account
+      // This allows them to reconnect seamlessly
+      setSaveStatus({
+        type: 'success',
+        message: 'Wallet disconnected from UI'
+      });
+      setTimeout(() => {
+        setSaveStatus({ type: null, message: '' });
+      }, 2000);
+    } catch (error) {
+      console.error('Error disconnecting wallet:', error);
+      setSaveStatus({
+        type: 'error',
+        message: 'Failed to disconnect wallet'
+      });
+    }
+  };
+
   // Check if all required General Information fields are filled
   const isGeneralInfoComplete = (): boolean => {
     return !!(
@@ -318,7 +440,7 @@ function StoreSettingsContent() {
               <p className="text-xs text-gray-600 mt-1">Manage your store configuration and preferences</p>
             </div>
             <div className="flex items-center gap-3">
-            {isGeneralInfoComplete() && <p className='text-xs'> Pls fill all fields</p>}
+              {isGeneralInfoComplete() && <p className='text-xs'> Pls fill all fields</p>}
               {/* Save Status */}
 
               {saveStatus.type && (
@@ -331,7 +453,7 @@ function StoreSettingsContent() {
                   {saveStatus.type === 'success' && <CheckCircle className="w-4 h-4" />}
                   {saveStatus.type === 'error' && <AlertCircle className="w-4 h-4" />}
                   {saveStatus.type === 'loading' && <Loader2 className="w-4 h-4 animate-spin" />}
-               
+
                   {saveStatus.message}
                 </div>
               )}
@@ -778,18 +900,73 @@ function StoreSettingsContent() {
                               </div>
                             </div>
 
+                            {!isWalletDetected ? (
+                              <div className="max-w-md bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                                <div className="flex items-start gap-2">
+                                  <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5" />
+                                  <div>
+                                    <p className="text-xs font-medium text-yellow-800">Wallet Extension Not Detected</p>
+                                    <p className="text-xs text-yellow-700 mt-1">
+                                      Please install a Stacks wallet extension like Leather, Xverse, or HiroX to connect your wallet.
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : null}
+
                             <div className="max-w-md">
-                              <WalletConnectButtonMini
-                                onSuccess={(address: string) => {
-                                  console.log('Wallet connected for payments:', address);
-                                }}
-                                onError={(error: string) => {
-                                  console.error('Wallet connection error:', error);
-                                }}
-                              />
+                              {!isConnected ? (
+                                <button
+                                  onClick={handleWalletConnect}
+                                  disabled={isConnecting || !isWalletDetected}
+                                  className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-3 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm"
+                                >
+                                  {isConnecting ? (
+                                    <>
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                      Connecting Wallet...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Wallet className="w-4 h-4" />
+                                      Connect Stacks Wallet
+                                    </>
+                                  )}
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={handleWalletDisconnect}
+                                  disabled={isConnecting}
+                                  className="w-full flex items-center justify-center gap-2 bg-red-50 text-red-700 border border-red-200 px-4 py-3 rounded-lg hover:bg-red-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm"
+                                >
+                                  {isConnecting ? (
+                                    <>
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                      Disconnecting...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Wallet className="w-4 h-4" />
+                                      Disconnect Wallet
+                                    </>
+                                  )}
+                                </button>
+                              )}
                             </div>
 
-                            {isAuthenticated && walletAddress && (
+                            {error && (
+                              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                                <div className="flex items-start gap-2">
+                                  <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+                                  <div>
+                                    <p className="text-xs font-medium text-red-900">Connection Error</p>
+                                    <p className="text-xs text-red-700 mt-1">{error}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {isConnected && walletAddress && (
                               <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                                 <div className="flex items-start gap-2">
                                   <CheckCircle className="w-5 h-5 text-blue-600 mt-0.5" />
@@ -798,7 +975,7 @@ function StoreSettingsContent() {
                                     <p className="text-xs text-blue-700 mt-1">
                                       Your store will receive STX payments directly to this wallet address.
                                     </p>
-                                    <p className="text-xs font-mono text-blue-600 mt-2">
+                                    <p className="text-xs font-mono text-blue-600 mt-2 break-all">
                                       {walletAddress}
                                     </p>
                                   </div>

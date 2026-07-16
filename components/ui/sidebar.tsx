@@ -18,7 +18,6 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { storeApi, ApiError } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
-import { IoAnalytics, IoBagCheckOutline } from 'react-icons/io5';
 
 interface SidebarProps {
   currentStore?: string;
@@ -35,8 +34,8 @@ interface StoreData {
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/admin/store' },
-   { icon: IoAnalytics, label: 'Analytics', href: '/admin/analytics' },
-    { icon: IoBagCheckOutline, label: 'Checkout', href: '/admin/checkout' },
+  // { icon: IoAnalytics, label: 'Analytics', href: '/admin/analytics' },
+  //{ icon: IoBagCheckOutline, label: 'Checkout', href: '/admin/checkout' },
   { icon: ShoppingCart, label: 'Orders', href: '/admin/store/orders' },
   { icon: Package, label: 'Products', href: '/admin/store/products' },
   { icon: Settings, label: 'Settings', href: '/admin/store/settings' },
@@ -213,7 +212,7 @@ export default function Sidebar({ currentStore }: SidebarProps) {
                       }`}
                     onClick={() => setIsStoreDropdownOpen(false)}
                   >
-                   
+
                     <div className="flex-1">
                       <p className="font-medium text-gray-900 text-xs">{store.name}</p>
                       <p className="text-xs text-gray-500">/{store.slug}</p>

@@ -10,9 +10,9 @@ import { abbreviateAddress } from '@/lib/stx-utils';
 
 export default function WebPlatform() {
   const [showWalletDialog, setShowWalletDialog] = useState(false);
-  
+
   const { userData, disconnectWallet } = useStacks();
-  const { isAuthenticated , logout} = useAuth();
+  const { isAuthenticated } = useAuth();
 
   return (
     <div className="h-full w-full bg-gray-50" suppressHydrationWarning>
@@ -70,7 +70,7 @@ export default function WebPlatform() {
           {/* Wallet & CTA Section */}
           <div className="flex items-center gap-2 sm:gap-4">
             {userData && (
-              <div className="flex items-center gap-3">
+              <div className="hidden flex items-center gap-3">
                 <div className="flex items-center bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200">
                   <div className="flex items-center gap-2 px-3 py-2">
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -93,18 +93,8 @@ export default function WebPlatform() {
               </div>
             )}
 
-            {/* Authentication Status Indicator */}
-            {isAuthenticated && (
-             <button 
-          onClick={logout}
-        className="hidden px-6 py-2 rounded-md bg-red-600 text-white hover:bg-red-500 hover:cursor-pointer">
-            
-          Logout
-        </button>
-            )}
-
-            <Link href={isAuthenticated ? '/admin' : '/onboard'} className="px-6 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-500 hover:cursor-pointer">
-              {isAuthenticated ? 'Dashboard' : 'Get Started'}
+            <Link href={'/onboard'} className="px-6 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-500 hover:cursor-pointer">
+              {'Get Started'}
             </Link>
           </div>
         </div>
@@ -120,7 +110,7 @@ export default function WebPlatform() {
             </h1>
 
             <p className="text-base sm:text-lg lg:text-xl text-gray-600 leading-relaxed">
-              {isAuthenticated 
+              {isAuthenticated
                 ? 'Manage your stores, track sales, and grow your Web3 business with our powerful dashboard.'
                 : 'StacksMart is a secured and open-source ecommerce platform for web3 sellers , creators and developers to create, manage and sell digital products powered by blockchain technology.'
               }
@@ -129,12 +119,12 @@ export default function WebPlatform() {
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
               <Link
-                href={isAuthenticated ? '/admin' : '/onboard'}
+                href={'/onboard'}
                 className="bg-indigo-600 text-white px-6 sm:px-8 py-4 rounded-lg font-medium hover:bg-indigo-700 transition-colors shadow-sm text-center"
               >
-                {isAuthenticated ? 'Go to Dashboard' : 'Get Started'}
+                {'Get Started'}
               </Link>
-              
+
               {isAuthenticated ? (
                 <Link
                   href="/admin"
@@ -143,9 +133,9 @@ export default function WebPlatform() {
                   Create New Store
                 </Link>
               ) : (
-                <a 
-                  href='http://docs.google.com/forms/d/e/1FAIpQLSegIYqoTgB6U9s-cQDsx_Csf2b8Jfa3JJ8jz8EcrJg1oGssIg/viewform' 
-                  target='_blank' 
+                <a
+                  href='http://docs.google.com/forms/d/e/1FAIpQLSegIYqoTgB6U9s-cQDsx_Csf2b8Jfa3JJ8jz8EcrJg1oGssIg/viewform'
+                  target='_blank'
                   className="bg-white text-gray-900 px-6 sm:px-8 py-3.5 rounded-lg font-medium hover:bg-gray-50 transition-colors border border-gray-300 text-center"
                 >
                   Join Waitlist
@@ -156,9 +146,9 @@ export default function WebPlatform() {
             {/* Blockchain Tags */}
             <div className="flex items-center gap-3">
               <a href='https://stacks.org/' target='_blank' className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full border-2 border-orange-500 text-orange-500 font-bold text-xs sm:text-sm bg-white">
-                <Image 
-            src={'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBwgHBgkIBwgKCgkLDRYPDQwMDRsUFRAWIB0iIiAdHx8kKDQsJCYxJx8fLT0tMTU3Ojo6Iys/RD84QzQ5OjcBCgoKDQwNGg8PGjclHyU3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3N//AABEIACgAKAMBEQACEQEDEQH/xAAYAAEAAwEAAAAAAAAAAAAAAAAAAwQGBf/EACsQAAAFAQYEBwEAAAAAAAAAAAABAgMRBAUSExUhcTEyQWEiNUJRgqHSFP/EABoBAQADAAMAAAAAAAAAAAAAAAACAwUEBgf/xAAqEQACAQIEBAUFAAAAAAAAAAAAAQIDEQQSE0ExUYLBISNh0fAUMmJjcf/aAAwDAQACEQMRAD8Atjqx6AAAAAAAAAE9C2w7VtN1bqmmVHCnElN3vsJ01FySk7IqrSnGm5U1drYsJsiqO18sMiJ4lQavSSeN7aNRZoT1dLf54lLxlP6fX278itWIYbqnUUrinWUqhC1FBq7iuaipNRd0X0ZTlTTqKz5EIgWAAdewsPCexMo5i8wI5+MdBysPls75eoz8bmzK2fp7mmPMPFJ2BP8ALroucD8/Q0PM/Hh68PYxvI/Zx9Pu9zM27h3GcPKeJzl5HPTmkZ+Iy2VsvSbOCzXlfP1djkDimgABPQuMM1bTlU0bzSDlTZHF72LYTpuMZJyV0VV4znTcabs3uTptaqK1szNUvX5Muhlwu7RoJqvPV1d/ngVPB0/p9Dbvz/pXrFsOVTq6Vo2mVKlLZnN3sITcXJuKsi6jGcaaVR3fMhECwAAAAAAAAP/Z'}
-                className='rounded-md' width={24} height={24} alt='stacks' />
+                <Image
+                  src={'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBwgHBgkIBwgKCgkLDRYPDQwMDRsUFRAWIB0iIiAdHx8kKDQsJCYxJx8fLT0tMTU3Ojo6Iys/RD84QzQ5OjcBCgoKDQwNGg8PGjclHyU3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3N//AABEIACgAKAMBEQACEQEDEQH/xAAYAAEAAwEAAAAAAAAAAAAAAAAAAwQGBf/EACsQAAAFAQYEBwEAAAAAAAAAAAABAgMRBAUSExUhcTEyQWEiNUJRgqHSFP/EABoBAQADAAMAAAAAAAAAAAAAAAACAwUEBgf/xAAqEQACAQIEBAUFAAAAAAAAAAAAAQIDEQQSE0ExUYLBISNh0fAUMmJjcf/aAAwDAQACEQMRAD8Atjqx6AAAAAAAAAE9C2w7VtN1bqmmVHCnElN3vsJ01FySk7IqrSnGm5U1drYsJsiqO18sMiJ4lQavSSeN7aNRZoT1dLf54lLxlP6fX278itWIYbqnUUrinWUqhC1FBq7iuaipNRd0X0ZTlTTqKz5EIgWAAdewsPCexMo5i8wI5+MdBysPls75eoz8bmzK2fp7mmPMPFJ2BP8ALroucD8/Q0PM/Hh68PYxvI/Zx9Pu9zM27h3GcPKeJzl5HPTmkZ+Iy2VsvSbOCzXlfP1djkDimgABPQuMM1bTlU0bzSDlTZHF72LYTpuMZJyV0VV4znTcabs3uTptaqK1szNUvX5Muhlwu7RoJqvPV1d/ngVPB0/p9Dbvz/pXrFsOVTq6Vo2mVKlLZnN3sITcXJuKsi6jGcaaVR3fMhECwAAAAAAAAP/Z'}
+                  className='rounded-md' width={24} height={24} alt='stacks' />
                 <span className="hidden sm:inline">Powered by Stacks</span>
                 <span className="sm:hidden">Stacks</span>
 

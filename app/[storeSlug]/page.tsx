@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Menu,
   Search,
@@ -87,6 +88,9 @@ interface ProductsResponse {
 
 // Main Page Component
 export default function Store({ params }: StorePageProps) {
+  const searchParams = useSearchParams();
+  const refreshTrigger = searchParams.get('refresh');
+
   const [storeSlug, setStoreSlug] = useState<string>('');
   const [storeData, setStoreData] = useState<StoreData | null>(null);
   const [productsData, setProductsData] = useState<ProductsResponse | null>(null);
@@ -145,7 +149,7 @@ export default function Store({ params }: StorePageProps) {
     };
 
     loadStoreData();
-  }, [storeSlug]);
+  }, [storeSlug, refreshTrigger]);
 
   // Load products
   useEffect(() => {
@@ -774,11 +778,10 @@ export default function Store({ params }: StorePageProps) {
                             <div className="flex flex-col gap-3 mt-auto justify-between h-full">
                               <div className='flex items-center gap-1 flex-wrap'>
                                 <Image
-                                  src={'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAMAAABF0y+mAAAASFBMVEVHcExYmddlgeAu1r5Irc5Hrc2JU/WKVPYj6q1reeMl5bOJUfWUSP0k5rNQndRcjdsd9KU4xsR9YO5pfOIt2b1DtctJqs9ybugVOp/+AAAAC3RSTlMAHE9DQ09NMjJDT2HHxPcAAACSSURBVCiRxdDBDoMgEEVRUMtUoFpB5f//tIPTyJOkpJumd3uCPlDqf+l7Fdiwbcuyrg/uKRWlad+vWkzPEyqzLRbnSosp3XE3yeZwTTszHg25nsOT5EJIUX4sV7JN7T+ojMYvG+dCSqgaz75HySqehdiMzFF3vgecNN7lYLQG4y5ajLyvlGo7NcUR11R9fY0f9AL+uBAN6GmI1QAAAABJRU5ErkJggg=='}
-                                  height={20}
-                                  width={20}
-                                  alt='Solana currency'
-                                  className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0"
+                                  src={'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTT1Ol7QZcI1_FsX7oxhyb5DYpDKw3AY4K_rm8ICOsVOA&s=10'} height={20}
+                                  width={80}
+                                  alt='Stacks currency'
+                                  className="w-8 h-8 sm:w-5 rounded-md sm:h-5 flex-shrink-0"
                                 />
                                 <p className={`flex gap-1 items-center font-semibold text-gray-900 ${viewMode === 'list' ? 'text-base sm:text-lg' : 'text-sm sm:text-base'
                                   }`}>
