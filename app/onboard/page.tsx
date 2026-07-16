@@ -1,9 +1,18 @@
-import dynamic from 'next/dynamic';
+"use client";
 
-const AuthFlowClient = dynamic(() => import('./AuthFlowClient'), {
-  ssr: false,
-});
+import { useEffect, useState } from 'react';
+import AuthFlowClient from './AuthFlowClient';
 
 export default function Page() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return null;
+  }
+
   return <AuthFlowClient />;
 }
