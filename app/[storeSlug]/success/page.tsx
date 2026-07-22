@@ -158,6 +158,11 @@ export default function PaymentSuccessPage() {
                                 <span className="text-gray-600">Amount:</span>
                                 <span className="font-medium text-gray-900">
                                     {orderData?.amount} {orderData?.currency}
+                                    {orderData?.currency === 'STX' && orderData?.amount && (
+                                        <span className="text-gray-500 text-sm font-normal ml-1">
+                                            (~₦{(parseFloat(orderData.amount) * 227.81).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                                        </span>
+                                    )}
                                 </span>
                             </div>
                             <div className="flex justify-between">
@@ -202,8 +207,13 @@ export default function PaymentSuccessPage() {
                                             <div className="text-sm font-medium text-gray-900">{item.product.name}</div>
                                             <div className="text-xs text-gray-600">Quantity: {item.quantity}</div>
                                         </div>
-                                        <div className="text-sm font-medium text-gray-900">
-                                            {item.price} {orderData.currency}
+                                        <div className="text-sm font-medium text-gray-900 flex items-center gap-1">
+                                            <span>{item.price} {orderData.currency}</span>
+                                            {orderData.currency === 'STX' && (
+                                                <span className="text-gray-500 text-xs font-normal">
+                                                    (~₦{(parseFloat(item.price) * 227.81).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                 ))}

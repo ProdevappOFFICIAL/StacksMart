@@ -120,7 +120,17 @@ export default function CheckoutPage() {
     const total = itemsTotal;
 
     const formatCurrency = (amount: number, currency: string = 'STX') => {
-        return `${amount.toFixed(2)} ${currency}`;
+        const base = `${amount.toFixed(2)} ${currency}`;
+        if (currency === 'STX') {
+            const naira = (amount * 227.81).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return (
+                <span className="inline-flex items-center gap-1">
+                    {base}
+                    <span className="text-gray-500 text-xs font-normal">(~₦{naira})</span>
+                </span>
+            );
+        }
+        return base;
     };
 
     const validateEmail = (email: string) => {
@@ -583,7 +593,7 @@ export default function CheckoutPage() {
                     </div>
                     <div className="flex justify-between text-xs">
                         <span className="text-gray-600">Platform Fee</span>
-                        <span className="text-gray-900 font-medium">0.00 STX</span>
+                        <span className="text-gray-900 font-medium">{formatCurrency(0, 'STX')}</span>
                     </div>
                     <div className="flex justify-between text-xs pt-2 border-t border-gray-200">
                         <span className="text-gray-600">Subtotal</span>

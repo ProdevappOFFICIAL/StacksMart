@@ -419,9 +419,16 @@ function StoreDashboardContent() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xs text-gray-600">Total Revenue</p>
-                      <p className="text-2xl font-bold text-gray-900">
-                        {analytics.revenue?.total || '0'} {analytics.revenue?.currency || 'STX'}
-                      </p>
+                      <div className="flex items-baseline gap-2">
+                        <p className="text-2xl font-bold text-gray-900">
+                          {analytics.revenue?.total || '0'} {analytics.revenue?.currency || 'STX'}
+                        </p>
+                        {(analytics.revenue?.currency || 'STX') === 'STX' && (
+                          <span className="text-gray-500 text-sm font-normal">
+                            (~₦{(parseFloat(analytics.revenue?.total || '0') * 227.81).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-1 mt-1">
                         {analytics.revenue?.change && getTrendIcon(analytics.revenue.change)}
                         <span className={`text-xs ${analytics.revenue?.change ? getTrendColor(analytics.revenue.change) : 'text-gray-600'}`}>
@@ -534,6 +541,9 @@ function StoreDashboardContent() {
                             <p className="font-semibold text-gray-900">
                               {order.amount || '0'} STX
                             </p>
+                            <p className="text-gray-500 text-xs font-normal">
+                              ~₦{(parseFloat(order.amount || '0') * 227.81).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
                           </div>
                         </div>
                       ))}
@@ -577,6 +587,9 @@ function StoreDashboardContent() {
                           </div>
                           <div className="text-right">
                             <p className="font-semibold text-gray-900">{product.revenue || '0'} STX</p>
+                            <p className="text-gray-500 text-xs font-normal">
+                              ~₦{(parseFloat(product.revenue || '0') * 227.81).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
                           </div>
                         </div>
                       ))}

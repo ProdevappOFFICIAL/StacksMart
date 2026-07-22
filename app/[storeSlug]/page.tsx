@@ -786,6 +786,11 @@ export default function Store({ params }: StorePageProps) {
                                 <p className={`flex gap-1 items-center font-semibold text-gray-900 ${viewMode === 'list' ? 'text-base sm:text-lg' : 'text-sm sm:text-base'
                                   }`}>
                                   {product.price} {product.currency}
+                                  {product.currency === 'STX' && (
+                                    <span className="text-gray-500 text-sm font-normal ml-1">
+                                      (~₦{(parseFloat(product.price) * 227.81).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                                    </span>
+                                  )}
                                 </p>
                                 <div className="text-xs">
                                   {product.stock === 'unlimited' ? (

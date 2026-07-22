@@ -803,7 +803,14 @@ const handleUpdateProduct = async () => {
                             {product.category || 'Uncategorized'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {product.price} {product.currency}
+                            <div className="flex items-center gap-1">
+                              <span>{product.price} {product.currency}</span>
+                              {product.currency === 'STX' && (
+                                <span className="text-gray-500 text-xs font-normal">
+                                  (~₦{(parseFloat(product.price) * 227.81).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {product.stock === 'unlimited' ? 'Unlimited' : product.stock}

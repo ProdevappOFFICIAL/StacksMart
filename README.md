@@ -2,180 +2,165 @@
 
 **A decentralized storefront builder powered by Stacks (Bitcoin L2)**
 
-StackMart is a Web3 ecommerce platform that enables merchants to create digital storefronts and accept STX payments through the Bitcoin Layer 2 network. Built for creators, developers, and entrepreneurs who want to leverage blockchain technology for secure, decentralized commerce.
-
-## 🌟 Overview
-
-This project establishes the foundation for a decentralized marketplace where:
-- Merchants can list and sell digital products
-- Customers pay with STX (Stacks tokens) 
-- All transactions are secured by Bitcoin's security model
-- No intermediaries or traditional payment processors required
+StackMart is a Web3 e-commerce platform that enables merchants to easily create digital storefronts, manage products, and accept STX payments through the Bitcoin Layer 2 network. Built for creators, developers, and entrepreneurs who want to leverage blockchain technology for secure, decentralized commerce without intermediaries.
 
 **Live Demo:** [https://stacks-mart.vercel.app/](https://stacks-mart.vercel.app/)
 
-## 🧰 What's Built (Month 1 Foundation)
+## 🌟 Core Offerings & Value Proposition
 
-### ✅ Core Infrastructure
-- **React + Next.js + Tailwind** frontend with modern UI/UX
-- **Stacks Wallet Integration** via `@stacks/connect`
-- **Wallet Connection Component** for seamless user authentication
-- **Project Structure** optimized for future Web3 integrations
-- **Public Deployment** on Vercel with mobile/desktop compatibility
+- **Decentralized Commerce**: Accept STX payments directly, natively secured by Bitcoin.
+- **Merchant Dashboard**: Comprehensive admin tools for managing products, monitoring orders, and customizing store settings.
+- **Custom Storefronts**: Dedicated, branded public pages for merchants to showcase and sell their digital or physical products.
+- **Web3 Authentication**: Seamless and secure sign-in using Hiro Wallet via `@stacks/connect`.
+- **Streamlined Onboarding**: Easy setup process for new merchants to configure their identity and launch a store in minutes.
 
-### 🔌 Wallet Features
-- Connect/disconnect Hiro Wallet functionality
-- User session management with local storage
-- Address display and abbreviation utilities
-- Secure authentication flow
+---
 
-### 🎨 UI Components
-- Landing page with Stacks branding
-- Features showcase section
-- Community engagement section
-- Responsive design across all devices
+## 🏗️ Architecture & Workflows
+
+StackMart is logically divided into three distinct operational domains:
+
+### 1. Merchant Onboarding & Identity
+Before creating a storefront, users authenticate with their Stacks wallet and claim a unique store identifier.
+
+```mermaid
+graph TD
+    A[Visitor] -->|Clicks Create Store| B(Connect Hiro Wallet)
+    B --> C{Authenticated?}
+    C -->|Yes| D[Claim Store Slug]
+    C -->|No| B
+    D --> E[Initial Store Config]
+    E --> F[Redirect to Admin Dashboard]
+```
+
+### 2. Merchant Admin Dashboard
+The secure back-office for authenticated merchants to operate their digital business.
+
+```mermaid
+graph LR
+    A[Merchant Dashboard<br>/admin] --> B(Store Settings)
+    A --> C(Product Management)
+    A --> D(Order Fulfillment)
+    
+    C --> C1[Add New Product]
+    C --> C2[Edit/Delete Product]
+    
+    D --> D1[View Sales]
+    D --> D2[Update Order Status]
+```
+
+### 3. Customer Storefront & Checkout
+The public-facing shopping experience designed for end-users to browse and securely purchase items using STX.
+
+```mermaid
+sequenceDiagram
+    participant Customer
+    participant Storefront (/storeSlug)
+    participant Cart
+    participant Stacks Network
+    
+    Customer->>Storefront: Browses Products
+    Customer->>Cart: Adds Item to Cart
+    Customer->>Cart: Proceeds to Checkout
+    Cart->>Stacks Network: Prompts Hiro Wallet for Transaction
+    Customer->>Stacks Network: Approves STX Transfer
+    Stacks Network-->>Storefront: Confirms Transaction
+    Storefront-->>Customer: Displays Success Page
+```
+
+---
+
+## 🗂️ Application Structure & Key Pages
+
+The application utilizes Next.js (App Router) to enforce separation of concerns between public shopping areas and secure merchant areas.
+
+### 🏪 Public Storefront (`app/[storeSlug]`)
+The customer-facing side of the platform where buyers interact with merchant stores.
+- **`app/[storeSlug]/page.tsx`**: The main public storefront page. Displays the store's branding and lists all available products. Customers can browse items and add them to their shopping cart.
+- **`app/[storeSlug]/checkout/page.tsx`**: The Web3 checkout flow where customers review their cart and finalize their purchases by executing a smart contract or direct STX transfer.
+- **`app/[storeSlug]/success/page.tsx`**: Order confirmation screen presented post-purchase, displaying the transaction ID and order details.
+
+### 🛡️ Merchant Admin Dashboard (`app/admin`)
+The secure backend interface restricted to the store owner.
+- **`app/admin/page.tsx`**: The main admin dashboard overview. Provides high-level metrics (e.g., total sales, revenue), recent activity, and quick navigation links.
+- **`app/admin/store/products/page.tsx`**: Product management interface. Merchants can create new listings, upload images, manage inventory levels, and set prices denominated in STX.
+- **`app/admin/store/orders/page.tsx`**: Order management tracker. Allows merchants to view incoming orders, buyer addresses, and update fulfillment statuses.
+- **`app/admin/store/settings/page.tsx`**: Store configuration. Merchants can update their store name, description, branding assets, and notification preferences.
+
+### 🚀 Merchant Onboarding (`app/onboard`)
+- **`app/onboard/page.tsx`**: A dedicated onboarding wizard for new merchants. It guides users through connecting their wallet, defining their store's unique URL slug (`[storeSlug]`), and completing the initial setup required to activate their storefront.
+- **`app/onboard/AuthFlowClient.tsx`**: Client-side logic handling the intricate states of wallet connection and initial profile creation.
+
+### 🌐 Core & Shared
+- **`app/page.tsx`**: The main landing page for StackMart itself, explaining the platform's value proposition to prospective merchants and funneling them towards the onboarding flow.
+- **`hooks/`**: Custom React hooks handling business logic (e.g., `useWallet`, `useCart`).
+- **`components/ui/`**: Reusable interface components tailored with Tailwind CSS and Lucide React icons.
+
+---
 
 ## 🧩 Tech Stack
 
-| Purpose | Library/Framework |
-|---------|------------------|
-| Frontend Framework | Next.js 15, React 19 |
-| Styling | Tailwind CSS 4 |
-| Stacks Integration | @stacks/connect, @stacks/auth |
-| Wallet Connection | Hiro Wallet |
-| Deployment | Vercel |
-| Language | TypeScript |
+| Category | Technology |
+|----------|------------|
+| **Frontend Framework** | Next.js 16 (App Router), React 19 |
+| **Styling** | Tailwind CSS 4, Lucide React icons |
+| **Web3 / Stacks Integration** | `@stacks/connect`, `@stacks/auth` |
+| **State & Flow Management** | `@stepperize/react` |
+| **Language** | TypeScript (Strict Mode) |
+| **Deployment & Hosting** | Vercel |
 
-## 🗂️ Key Files & Structure
-
-```
-├── app/
-│   ├── layout.tsx              # App layout and metadata
-│   ├── page.tsx                # Main landing page
-│   └── globals.css             # Global styles
-├── components/
-│   ├── section/                # Page sections (home, features, etc.)
-│   ├── ui/                     # Reusable UI components
-│   └── wallet/                 # Wallet-related components
-├── lib/
-│   ├── use-stacks.ts          # Stacks wallet hook
-│   └── stx-utils.ts           # Utility functions for addresses
-├── hooks/
-│   ├── useCart.ts             # Shopping cart functionality
-│   ├── useCheckout.ts         # Checkout process management
-│   └── useWallet.ts           # Wallet state management
-└── prisma/                    # Database schema (future)
-```
+---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 - Node.js 18+ 
-- npm or yarn
-- Hiro Wallet browser extension
+- npm, yarn, or pnpm
+- [Hiro Wallet](https://wallet.hiro.so/) browser extension installed
 
-### Installation
+### Installation & Setup
 
 1. **Clone the repository**
-```bash
-git clone <your-repo-url>
-cd stacks-mart
-```
+   ```bash
+   git clone <your-repo-url>
+   cd stacks-store
+   ```
 
 2. **Install dependencies**
-```bash
-npm install
-```
+   ```bash
+   npm install
+   ```
 
-3. **Set up environment variables**
-```bash
-cp .env.example .env
-# Edit .env with your configuration
-```
+3. **Configure Environment Variables**
+   ```bash
+   cp .env.example .env
+   # Edit .env to include your specific network settings (Testnet/Mainnet)
+   ```
 
 4. **Run the development server**
-```bash
-npm run dev
-```
+   ```bash
+   npm run dev
+   ```
 
-5. **Open your browser**
-Navigate to [http://localhost:3000](http://localhost:3000)
-
-### 🔧 Available Scripts
-
-```bash
-npm run dev      # Start development server
-npm run build    # Build for production
-npm run start    # Start production server
-npm run lint     # Run ESLint
-```
-
-## 🧪 Testing & Verification
-
-### ✅ Completed Tests
-- [x] App builds and runs successfully with `npm run dev`
-- [x] Hiro Wallet popup opens and connects/disconnects correctly
-- [x] Public deployment tested on mobile & desktop
-- [x] Wallet connection persists across page reloads
-- [x] Address abbreviation and display working properly
-
-### 🔍 Manual Testing Steps
-1. Install Hiro Wallet browser extension
-2. Visit the live demo or run locally
-3. Click "Connect Wallet" button
-4. Approve connection in Hiro Wallet popup
-5. Verify wallet address displays correctly
-6. Test disconnect functionality
-
-## 🌐 Deployment
-
-The application is automatically deployed to Vercel on every push to the main branch.
-
-**Production URL:** [https://stacks-mart.vercel.app/](https://stacks-mart.vercel.app/)
-
-### Manual Deployment
-```bash
-npm run build
-# Deploy the .next folder to your preferred hosting platform
-```
-
-## 🔜 Roadmap (Next Steps)
-
-### Month 2: Onboarding Screen
-- [ ] Implement Onboarding for user to create storefront
-- [ ] Add Stores page
-- [ ] Add payment flow
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our contributing guidelines and feel free to submit issues and pull requests.
-
-### Development Guidelines
-- Follow TypeScript best practices
-- Use Tailwind for styling
-- Ensure wallet integration compatibility
-- Test on multiple browsers and devices
-
-## 📄 License
-
-This project is open source and available under the [MIT License](LICENSE).
-
-## 🔗 Links
-
-- **Live Demo:** [https://stacks-mart.vercel.app/](https://stacks-mart.vercel.app/)
-- **Stacks Documentation:** [https://docs.stacks.co/](https://docs.stacks.co/)
-- **Hiro Wallet:** [https://wallet.hiro.so/](https://wallet.hiro.so/)
-
-## 💡 Why StackMart Matters
-
-This project demonstrates meaningful integration with the Stacks ecosystem by:
-- **Leveraging Bitcoin Security:** Built on Stacks L2 for Bitcoin-level security
-- **Real Web3 Functionality:** Actual wallet integration, not just UI mockups  
-- **Developer-Friendly:** Clean codebase with clear patterns for Web3 development
-- **Production Ready:** Deployed, tested, and accessible to real users
-
-StackMart represents the future of decentralized commerce - where merchants have full control, customers have privacy, and transactions are secured by the world's most trusted blockchain.
+5. **Launch Application**
+   Navigate to [http://localhost:3000](http://localhost:3000)
 
 ---
 
-**Built with ❤️ for the Stacks ecosystem and Code4STX**
+## 🧪 Testing & Verification Walkthrough
+1. **Wallet Setup:** Ensure your Hiro Wallet is set to the correct network (e.g., Testnet for development).
+2. **Launch Node:** Run `npm run dev`.
+3. **Merchant Creation:** Navigate to `/onboard`, connect your wallet, and register a new store slug.
+4. **Product Population:** Access the Admin Dashboard at `/admin`, proceed to Products, and add a test item with an STX price.
+5. **Customer Simulation:** Open an incognito window, navigate to your public URL (`/your-store-slug`), add the item to your cart, and proceed to checkout using a secondary Hiro Wallet account.
+
+---
+
+## 🤝 Contributing
+We welcome community contributions! 
+- Follow standard TypeScript best practices.
+- Ensure any new Web3 features are thoroughly tested across different wallet states (unauthenticated, wrong network, insufficient funds).
+- Submit bug reports or feature requests via GitHub Issues.
+
+## 📄 License
+This project is open-source and available under the [MIT License](LICENSE).
